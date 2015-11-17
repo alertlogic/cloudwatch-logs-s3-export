@@ -1,0 +1,52 @@
+{
+  "name": "cloudwatch-logs-s3-export",
+  "homepage": "https://github.com/alertlogic/cloudwatch-logs-s3-export",
+  "author": "Pavel Trakhtman <pavel@alertlogic.com>",
+  "description": "",
+  "bugs": {
+    "url": "https://github.com/alertlogic/cloudwatch-logs-s3-export/issues"
+  },
+  "scripts": {
+    "build": "npm run test && node build/build.js",
+    "hookmeup": "cd utility; ./hookmeup.sh",
+    "lint": "node node_modules/.bin/jshint --config ./.jshintrc --exclude-path ./.jshintignore ./",
+    "test": "npm run lint",
+    "release": "npm version patch",
+    "release:build": "npm version patch && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:alertlogic/cloudwatch-logs-s3-export.git"
+  },
+  "version": "0.0.5",
+  "license": "MIT",
+  "engines": {
+    "node": "0.12.7"
+  },
+  "dependencies": {
+    "async": "^1.4.2"
+  },
+  "folders": {
+    "build": "target/",
+    "jsSource": ""
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.2.9",
+    "glob": "3.1.21",
+    "glob-all": "3.0.1",
+    "jshint": "^2.8.0",
+    "lazystream": "^0.1.0",
+    "mkdirp": "^0.5.1",
+    "ncp": "^2.0.0",
+    "node-zip": "^1.1.1",
+    "onchange": "^1.1.0",
+    "parallelshell": "^1.2.0",
+    "process": "^0.11.1",
+    "prompt": "^0.2.14",
+    "readable-stream": "^2.0.1",
+    "replacestream": "^4.0.0",
+    "rimraf": "^2.4.1",
+    "uglify-js": "^2.4.23",
+    "version": "^0.1.2"
+  }
+}
