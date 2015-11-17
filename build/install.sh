@@ -8,7 +8,7 @@ white='\033[1;37m'
 yellow='\033[1;33m'
 NC='\033[0m' # No Color
 
-BASE_DIR=${2:-~}
+BASE_DIR=`pwd`
 
 # Find out where we launched from.
 echo -e "${white}Installing Lambda Workspace.${NC}"
