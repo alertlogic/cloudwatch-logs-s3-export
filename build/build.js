@@ -29,7 +29,8 @@ var source = {
         '!' + base + 'node_modules/**',
         '!' + base + 'target/**',
         '!' + base + 'utility/**',
-        '!' + base + 'deployment/**'
+        '!' + base + 'deployment/**',
+        '!' + base + 'configuration/**'
     ],
     "config": [
         base + 'package.json'
@@ -44,10 +45,8 @@ var awsRegions      = ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-northeast-1'];
 async.waterfall([
     function(callback) {
         mkdirp(deploy + 'node_modules/', function (err) {
-            if (err) {
-                return callback(err);
-            }
-            execfile('npm', ['install', '--production', '--prefix', 'target/cloudwatch-logs-s3-export', './'], function(err, stdout) {
+            fs.createReadStream('./package.json').pipe(fs.createWriteStream('./target/cloudwatch-logs-s3-export/package.json'));
+            execfile('npm', ['install', '--only=production', '--prefix', 'target/cloudwatch-logs-s3-export'], function(err, stdout) {
                 if (err) {
                     console.log("npm install failed. Error: " + err);
                     return callback(err);
@@ -66,7 +65,6 @@ async.waterfall([
                 switch (section) {
                     default:
                         glob.sync(source[section]).forEach(function(item) {
-                            console.log("Making " + path.dirname(item.replace(base, deploy)));
                             mkdirp(path.dirname(item.replace(base, deploy)), function (err) {
                                 if (err) {
                                     console.log("Error: " + JSON.stringify(err));
@@ -76,12 +74,14 @@ async.waterfall([
                                         case 'application':
                                             var minified = uglifyjs.minify(item, {mangle: false});
                                             fs.writeFile(item.replace(base, deploy), minified.code.replace('release.version', pkg.version));
-                                            break;
+                                            return eachCallback(null);
                                         default:
-                                            fs.createReadStream(item).pipe(fs.createWriteStream(item.replace(base, deploy)));
+                                            var stream = fs.createReadStream(item).pipe(fs.createWriteStream(item.replace(base, deploy)));
+                                            stream.on('finish', function() {
+                                                return eachCallback(null);
+                                            });
                                             break;
                                     }
-                                    return eachCallback(null);
                                 }
                             }.bind({section: section}));
                         });
@@ -103,7 +103,6 @@ async.waterfall([
 
         var fileName = 'cloudwatch-logs-s3-export-' + pkg.version + '.zip';
         var zipped  = '../' + fileName;
-        console.log("fileName: " + fileName + ", zipped: " + zipped);
         process.chdir('target/cloudwatch-logs-s3-export');
         execfile('zip', ['-r', '-X', zipped, './'], function(err, stdout) {});
         process.chdir('../../');
@@ -114,11 +113,10 @@ async.waterfall([
                 profile: {
                     required: true
                 },
-                bucket: {
+                bucketPrefix: {
                     description: 'Provide backet name prefix to upload ' + fileName + '. The region name will be appended to the name you provide.',
                     required: true,
-                    default: 'alertlogic-public-repo',
-                    before: function(value) { return awsRegions.map(function(region) { return {regionName: region, bucketName: value + '.' + region}; }); }
+                    default: 'alertlogic-public-repo'
                 }
             }
         };
@@ -136,23 +134,25 @@ async.waterfall([
                 AWS.config.credentials = credentials;
                 var s3 = new AWS.S3();
             
-            async.eachSeries(input.bucket, function(bucket, seriesCallback) {
-                console.log("Uploading '" + fileName + "' to '" + bucket.bucketName + "' bucket.");
-                s3.endpoint = getS3Endpoint(bucket.regionName);
+            async.eachSeries(awsRegions, function(region, seriesCallback) {
+                var bucketName = input.bucketPrefix + "." + region;
+                console.log("Uploading '" + fileName + "' to '" + bucketName + "' bucket.");
+                s3.endpoint = getS3Endpoint(region);
                 var params = {
-                            "Bucket": bucket.bucketName,
+                            "Bucket": bucketName,
                             "Key": fileName,
                             "Body": code,
                             "ContentType": "application/binary"
                         };
                 s3.putObject(params, function(err, _result) {
                     if (err) {
-                        console.log("Failed to persist '" + fileName + "' object to '" + bucket.bucketName + "' bucket. " +
-                                    "Error: " + JSON.stringify(err));
+                        console.log("Failed to persist '" + fileName + "' object to '" + bucketName +
+                                    "' bucket. Error: " + JSON.stringify(err));
+                        return seriesCallback(err);
                     } else {
                         console.log("Successfully persisted '" + fileName + "'.");
+                        return seriesCallback(null);
                     }
-                    return seriesCallback(err);
                 });
             },
             function(err) {
@@ -161,7 +161,8 @@ async.waterfall([
                     return callback(err);
                 } else {
                     console.log("Successfully uploaded to S3.");
-                    return callback(null);
+                    // Update cloudformation with new default values
+                    return updateCFTemplate(input.bucketPrefix, fileName, callback);
                 }
             });
         });
@@ -169,6 +170,42 @@ async.waterfall([
     function (err) {
         return onErr(err)
     });
+
+function updateCFTemplate(bucketPrefix, objectName, resultCallback) {
+    "use strict";
+    var jsonTemplateFile = "configuration/cloudformation/cwl-s3-export.template";
+    async.waterfall([
+        function(callback) {
+            fs.readFile(jsonTemplateFile, { encoding: 'utf8' }, function (err, data) {
+                if (err) {return callback(err);}
+                // parse and return json to callback
+                var json = JSON.parse(data);
+                return callback(null, json);
+            });
+        },
+        function(template, callback) {
+            var modified = false;
+            if (template.Parameters.LambdaS3BucketNamePrefix.Default !== bucketPrefix) {
+                template.Parameters.LambdaS3BucketNamePrefix.Default = bucketPrefix;
+                modified = true;
+            }
+            if (template.Parameters.LambdaPackageName.Default !== objectName) {
+                template.Parameters.LambdaPackageName.Default = objectName;
+                modified = true;
+            }
+            return callback(null, modified ? template : null);
+        },
+        function (template, callback) {
+            if (template) {
+                return fs.writeFile(jsonTemplateFile, JSON.stringify(template, null, 4), callback);
+            } else {
+                return callback(null);
+            }
+        }
+    ], function (err) {
+        return resultCallback(err);
+    });
+}
 
 function onErr(err) {
     if (err !== null) {

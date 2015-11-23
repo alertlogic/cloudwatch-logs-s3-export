@@ -40,7 +40,8 @@ function processLogs(args, s3, resultCallback) {
             for (var i = 0; i < results.length; i++) {
                 data += results[i]; 
             }
-            return uploadData(data, args.awsRegion, args.s3BucketName, s3, resultCallback);
+            var objectName = getObjectName(args.awsRegion, args.s3LogFilePrefix, args.logFormat);
+            return uploadData(data, args.awsRegion, args.s3BucketName, objectName, s3, resultCallback);
         }
     ); 
 }
@@ -64,11 +65,18 @@ function getMessages(logFormat, record, callback) {
             logs        = "";
 
         switch(logFormat) {
-            case "Amazon VPC Flow Logs":
+            case "AWS VPC Flow Logs":
                 logEvents.forEach(function (log) {
                     // Get the timestamp for the beginning of the captured window 
                     var timestamp = log.message.split(' ')[10];
                     logs = logs + "VPC Flow Log Record: " + timestamp + " " + log.message + "\n";
+                });
+                break;
+            case "AWS Lambda":
+                logEvents.forEach(function (log) {
+                    // Get the timestamp for the beginning of the captured window 
+                    var date = new Date(log.timestamp);  
+                    logs = logs + "Lambda Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
                 });
                 break;
             default:
@@ -79,7 +87,7 @@ function getMessages(logFormat, record, callback) {
     });
 }
 
-function uploadData(data, awsRegion, s3BucketName, s3, callback) {
+function uploadData(data, awsRegion, s3BucketName, objectName, s3, callback) {
     "use strict";
     if (!data || !data.length) { return callback(); }
 
@@ -90,17 +98,7 @@ function uploadData(data, awsRegion, s3BucketName, s3, callback) {
             return callback();
         }
         
-        var now = new Date(),
-            time_string = now.getFullYear() +
-                '-' +
-                now.getMonth() + '-' +
-                now.getDate() + '-' +
-                now.getHours() + '-' +
-                now.getMinutes() + '-' +
-                now.getSeconds(),
-            objectName = awsRegion + "_vpc_flow_logs_" +
-                Math.random().toString(36).substr(2, 4) + "_" + time_string + ".json.gz", 
-            params = {
+        var params = {
                 "Bucket": s3BucketName,
                 "Key": objectName,
                 "Body": new Buffer(compressedData, 'base64'),
@@ -117,6 +115,33 @@ function uploadData(data, awsRegion, s3BucketName, s3, callback) {
             return callback(err);
         });
     });
+}
+
+function getObjectName(awsRegion, s3LogFilePrefix, logFormat) {
+    "use strict";
+    var now = new Date(),
+        time_string = now.getFullYear() +
+            '-' +
+            now.getMonth() + '-' +
+            now.getDate() + '-' +
+            now.getHours() + '-' +
+            now.getMinutes() + '-' +
+            now.getSeconds(),
+        prefix = "";
+
+    switch(logFormat) {
+        case "AWS VPC Flow Logs":
+            prefix = (s3LogFilePrefix === "" ? "" : s3LogFilePrefix) + awsRegion + "_vpc_flow_logs_";
+            break;
+
+        case "AWS Lambda":
+            prefix = (s3LogFilePrefix === "" ? "" : s3LogFilePrefix) + awsRegion + "_lambda_logs_";
+            break;
+
+        default:
+            return null;
+    }
+    return prefix + Math.random().toString(36).substr(2, 4) + "_" + time_string + ".json.gz";
 }
 
 function getS3Endpoint(region) {
