@@ -60,6 +60,10 @@ The **Cloud Watch Logs Export To S3** utility is deployed via a CloudFormation S
 7. Create ***CloudFormation*** stack.
 
 -
-    Note: Due to the eventual consistency nature of the AWS services, the CloudFormation creation may fail during creation of the Kinesis Event Stream Mapping. The problem is the CloudFormation service sees IAM Policy created while Kinesis service doesn't. If this happens, delete failed stack and re-run CloudFormation stack creation.
+    Note: Due to the eventual consistency nature of the AWS services, the
+    CloudFormation creation may fail during creation of the Kinesis Event
+    Stream Mapping. The problem is the CloudFormation service sees IAM
+    Policy created while Kinesis service doesn't. If this happens, delete
+    failed stack and re-run CloudFormation stack creation.
 
 
