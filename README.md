@@ -26,7 +26,7 @@ Execute the Lambda development environment installation script.
 ```$ build/install.sh```
 
 ##Building for AWS
-Skip to the [Setup](### Setup) section if you want to use pre-built Lambda package.
+Skip to the [Setup](#setup) section if you want to use pre-built Lambda package.
 #### Build process
 Run ```npm run build``` to create a versioned, distributable zip artifact.  
 This artifcat is properly packaged to upload directly to AWS Lambda and work with the default configuration.  
