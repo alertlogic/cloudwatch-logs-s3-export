@@ -26,8 +26,9 @@ Execute the Lambda development environment installation script.
 ```$ build/install.sh```
 
 ##Building for AWS
-    Note: Skip to the **Setup** section if you want to use pre-built ***Lambda*** package.
-run ```npm run build``` to create a versioned, distributable zip artifact.  
+Skip to the [Setup](#Setup) section if you want to use pre-built Lambda package.
+#### Build process
+Run ```npm run build``` to create a versioned, distributable zip artifact.  
 This artifcat is properly packaged to upload directly to AWS Lambda and work with the default configuration.  
 run ```npm run release``` to update the version  
 
@@ -50,11 +51,15 @@ run ```npm run release``` to update the version
 The **Cloud Watch Logs Export To S3** utility is deployed via a CloudFormation Service using the template located in ```configuration/cloudformation/cwl-s3-export.template``` file.
 
 #### Exporting VPC Flow Logs To S3
-1. Ensure that ***VPC Flow Logs*** is correctly eenabled for your VPC and the logs are present in the Cloud Watch Logs.
+1. Ensure that ***VPC Flow Logs*** is correctly enabled for your VPC and the logs are present in the Cloud Watch Logs.
 2. Create an ***S3 bucket*** to send VPC Flow Logs into.
 3. In AWS console, select ***CloudFormation*** Service and make sure to select correct deployment region.
-4. Create new stack using the template stored ```configuration/cloudformation/cwl-s3-export.template```
+4. Create new stack using the template stored ```configuration/cloudformation/cwl-s3-export.template```.
 5. Specify ***CloudWatch Log Group*** where your ***VPC Flog Logs*** are sent.
-6. Specify ***S3 Bucket*** to store ***VPC Flog Logs***
+6. Specify ***S3 Bucket*** to store ***VPC Flog Logs***.
 7. Create ***CloudFormation*** stack.
+
+-
+    Note: Due to the eventual consistency nature of the AWS services, the CloudFormation creation may fail during creation of the Kinesis Event Stream Mapping. The problem is the CloudFormation service sees IAM Policy created while Kinesis service doesn't. If this happens, delete failed stack and re-run CloudFormation stack creation.
+
 
