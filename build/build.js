@@ -62,31 +62,17 @@ async.waterfall([
          */
         async.each(Object.getOwnPropertyNames(source),
             function(section, eachCallback) {
-                switch (section) {
-                    default:
-                        glob.sync(source[section]).forEach(function(item) {
-                            mkdirp(path.dirname(item.replace(base, deploy)), function (err) {
-                                if (err) {
-                                    console.log("Error: " + JSON.stringify(err));
-                                    return eachCallback(err);
-                                } else {
-                                    switch (this.section) {
-                                        case 'application':
-                                            var minified = uglifyjs.minify(item, {mangle: false});
-                                            fs.writeFile(item.replace(base, deploy), minified.code.replace('release.version', pkg.version));
-                                            return eachCallback(null);
-                                        default:
-                                            var stream = fs.createReadStream(item).pipe(fs.createWriteStream(item.replace(base, deploy)));
-                                            stream.on('finish', function() {
-                                                return eachCallback(null);
-                                            });
-                                            break;
-                                    }
-                                }
-                            }.bind({section: section}));
-                        });
-                        break;
-                }
+                glob.sync(source[section]).forEach(function(item) {
+                    mkdirp(path.dirname(item.replace(base, deploy)), function (err) {
+                        if (err) {
+                            console.log("Error: " + JSON.stringify(err));
+                            return eachCallback(err);
+                        } else {
+                            var stream = fs.createReadStream(item).pipe(fs.createWriteStream(item.replace(base, deploy)));
+                        }
+                    }.bind({section: section}));
+                });
+                return eachCallback(null);
             },
             function(err) {
                 return callback(null);
@@ -174,6 +160,7 @@ async.waterfall([
 function updateCFTemplate(bucketPrefix, objectName, resultCallback) {
     "use strict";
     var jsonTemplateFile = "configuration/cloudformation/cwl-s3-export.template";
+    console.log("Updating '" + jsonTemplateFile + "'.");
     async.waterfall([
         function(callback) {
             fs.readFile(jsonTemplateFile, { encoding: 'utf8' }, function (err, data) {

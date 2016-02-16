@@ -1,8 +1,32 @@
 var async   = require('async'),
     zlib    = require('zlib'),
-    AWS     = require('aws-sdk');
+    AWS     = require('aws-sdk'),
+    setup   = require('./setup.js');
 
 exports.handler = function(args, context) {
+    "use strict";
+    var callback = function(err, result) {
+        if (err) {
+            console.log("'" + args.operation + "' failed. Error: " + JSON.stringify(err));
+            return context.fail(JSON.stringify(err));
+        }
+        console.log("Returning: " + JSON.stringify(result));
+        return context.succeed(result);
+    };
+
+    switch (args.operation) {
+        case 'processLogs':
+            return handleProcessLogs(args.data, callback);
+        case 'createSource':
+            return setup.createSource(args.data, callback);
+        case 'deleteSource':
+            return setup.deleteSource(args.data, callback);
+        default:
+            return context.fail("Unsupported operation: '" + args.operation + "'.");
+    }
+};
+
+function handleProcessLogs(args, resultCallback) {
     "use strict";
     var s3 = new AWS.S3();
     async.waterfall([
@@ -23,10 +47,10 @@ exports.handler = function(args, context) {
         }
         ],
         function done(err) {
-            return context.done(err);
+            resultCallback(err);
         }
     );
-};
+}
 
 function processLogs(args, s3, resultCallback) {
     "use strict";
