@@ -253,13 +253,24 @@ function getPolicy(args, createFlag, callback) {
 
 function createPolicy(args, callback) {
     "use strict";
-    var params = {
+    var params = (args.logFormat === "AWS VPC Flow Logs") ? {
+            customerId: args.customerId,
+            auth:       args.auth,
+            name:       args.name,
+            type:       args.type,
+            policy: {
+                default: "false",
+                template_id:    "BFE6243E-E57C-4ADE-B444-C5999E8FE3A7"
+            }
+        } : {
             customerId: args.customerId,
             auth:       args.auth,
             name:       args.name,
             type:       args.type,
             policy:     args.policy
         };
+
+    console.log("Creating policy document: %s", JSON.stringify(params));
     defenderApi.createPolicy(params, function(err, result) {
         if (err) {
             return callback(err);
@@ -298,6 +309,7 @@ function doCreateSource(args, credentialId, policyId, callback) {
             type:           args.type,
             source:         args[args.type]
         };
+    console.log("Creating source: %s", JSON.stringify(params));
     defenderApi.createSource(params, function(err, result) {
         if (err) {
             return callback(err);
