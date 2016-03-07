@@ -42,10 +42,12 @@ exports.createPolicy = function(params, callback) {
     var url = '/api/lm/v1/' + params.customerId + '/policies/' + params.type,
         payload = {};
     params.policy.default = toBoolean(params.policy.default);
-    params.policy.multiline.is_multiline = toBoolean(params.policy.multiline.is_multiline);
-   
     payload[params.type] = params.policy;
     payload[params.type]['name'] = params.name;
+    if (params.policy.hasOwnProperty("multiline")) {
+        params.policy.multiline.is_multiline = toBoolean(params.policy.multiline.is_multiline);
+    }
+   
     console.log("Create Policy object: " + JSON.stringify(payload));
     post(url, payload, params.auth, callback); 
 };
@@ -53,17 +55,21 @@ exports.createPolicy = function(params, callback) {
 exports.createSource = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/sources/' + params.type,
-        payload = {};
-    params.source.enabled = toBoolean(params.source.enabled);
+        payload = {},
+        source = params.source;
+    source.enabled = toBoolean(source.enabled);
     
-    if (params.source.hasOwnProperty('max_collection_interval')) {
-        params.source.max_collection_interval = toInteger(params.source.max_collection_interval);
+    if (source.hasOwnProperty('max_collection_interval')) {
+        source.max_collection_interval = Number(source.max_collection_interval);
+    } else {
+        params.source['max_collection_interval'] = 300;
     }
 
-    payload[params.type] = params.source;
+    payload[params.type] = source;
     payload[params.type]['name'] = params.name;
     payload[params.type]['credential_id'] = params.credentialId;
     payload[params.type]['policy_id'] = params.policyId;
+
     post(url, payload, params.auth, callback); 
 };
 
@@ -215,12 +221,6 @@ function getQueryString(args) {
 function toBoolean(value) {
     "use strict";
     return (typeof value === "string") ? (value === "true") : value;
-}
-
-function toInteger(value) {
-    "use strict";
-    value = (value === "string") ? parseInt(value, 10) : value;
-
 }
 
 function errorFromResult(res) {

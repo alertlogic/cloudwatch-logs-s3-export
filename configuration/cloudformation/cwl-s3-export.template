@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "A stack that sets up a reliable export of the CloudWatch Logs to S3 bucket and optionally send data to Alert Logic's Log Manager. You will be billed for the AWS resources used if you create a stack from this template. This template requires setting the \"Create IAM resources\" parameter to True.",
+    "Description": "A stack that sets up a reliable export of the CloudWatch Logs to S3 bucket. You will be billed for the AWS resources used if you create a stack from this template. This template requires setting the \"Create IAM resources\" parameter to True.",
     "Parameters": {
         "CloudWatchLogGroup": {
             "Description": "The name of the CloudWatch Logs Group to export to S3 bucket.",
@@ -30,7 +30,7 @@
             "Default": ""
         },
         "S3BucketName": {
-            "Description": "S3 bucket to archive CloudWatch logs into. The bucket must already exist.",
+            "Description": "S3 bucket to archive CloudWatch logs into.",
             "Type": "String",
             "MinLength" : "5"
         },
@@ -192,15 +192,15 @@
                                             "",
                                             [
                                                 {
+                                                    "Ref": "AWS::StackName"
+                                                },
+                                                ":",
+                                                {
                                                     "Ref": "AWS::AccountId"
                                                 },
                                                 ":",
                                                 {
                                                     "Ref": "AWS::Region"
-                                                },
-                                                ":",
-                                                {
-                                                    "Ref": "AWS::StackName"
                                                 }
                                             ]
                                         ]
@@ -740,20 +740,21 @@
                             "",
                             [
                                 {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "-",
+                                {
                                     "Ref": "AWS::AccountId"
                                 },
                                 "-",
                                 {
                                     "Ref": "AWS::Region"
-                                },
-                                "-",
-                                {
-                                    "Ref": "AWS::StackName"
                                 }
                             ]
                         ]
                     },
                     "type": "s3",
+                    "logFormat": { "Ref": "LogFormat" },
                     "credentials": {
                         "type": "iam_role",
                         "arn": {
@@ -767,15 +768,15 @@
                                 "",
                                 [
                                     {
+                                        "Ref": "AWS::StackName"
+                                    },
+                                    ":",
+                                    {
                                         "Ref": "AWS::AccountId"
                                     },
                                     ":",
                                     {
                                         "Ref": "AWS::Region"
-                                    },
-                                    ":",
-                                    {
-                                        "Ref": "AWS::StackName"
                                     }
                                 ]
                             ]
