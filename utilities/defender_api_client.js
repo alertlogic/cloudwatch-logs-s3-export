@@ -2,19 +2,19 @@ var config        = require('../config.js');
 exports.getSource = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/sources';
-    get(url, params.args, params.auth, callback);
+    get(params.customerId, url, params.args, params.auth, callback);
 };
 
 exports.getCredentials = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/credentials';
-    get(url, params.args, params.auth, callback);
+    get(params.customerId, url, params.args, params.auth, callback);
 };
 
 exports.getPolicy = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/policies';
-    get(url, params.args, params.auth, callback);
+    get(params.customerId, url, params.args, params.auth, callback);
 };
 
 exports.createCredentials = function(params, callback) {
@@ -34,7 +34,7 @@ exports.createCredentials = function(params, callback) {
         default:
             return callback({message: "Unsupported credentials type specified."});
     }
-    post(url, payload, params.auth, callback);
+    post(params.customerId, url, payload, params.auth, callback);
 };
 
 exports.createPolicy = function(params, callback) {
@@ -49,7 +49,7 @@ exports.createPolicy = function(params, callback) {
     }
    
     console.log("Create Policy object: " + JSON.stringify(payload));
-    post(url, payload, params.auth, callback); 
+    post(params.customerId, url, payload, params.auth, callback);
 };
 
 exports.createSource = function(params, callback) {
@@ -70,34 +70,32 @@ exports.createSource = function(params, callback) {
     payload[params.type]['credential_id'] = params.credentialId;
     payload[params.type]['policy_id'] = params.policyId;
 
-    post(url, payload, params.auth, callback); 
+    post(params.customerId, url, payload, params.auth, callback);
 };
 
 exports.deleteCredential = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/credentials/' + params.id;
-    del(url, params.auth, callback);
+    del(params.customerId, url, params.auth, callback);
 };
 
 exports.deletePolicy = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/policies/' + params.id;
-    del(url, params.auth, callback);
+    del(params.customerId, url, params.auth, callback);
 };
 
 exports.deleteSource = function(params, callback) {
     "use strict";
     var url = '/api/lm/v1/' + params.customerId + '/sources/' + params.id;
-    del(url, params.auth, callback);
+    del(params.customerId, url, params.auth, callback);
 };
 
-
-
-function get(url, args, auth, callback) {
+function get(customerId, url, args, auth, callback) {
     "use strict";
     var https   = require('https'),
         options = {
-            hostname:   config.api_url,
+            hostname:   getCustomerHost(customerId),
             port:       443,
             path:       url + getQueryString(args),
             method:     'GET',
@@ -130,12 +128,12 @@ function get(url, args, auth, callback) {
     apiGet.end();
 }
 
-function post(url, payload, auth, callback) {
+function post(customerId, url, payload, auth, callback) {
     "use strict";
     var https   = require('https'),
         data    = JSON.stringify(payload),
         options = {
-            hostname:   config.api_url,
+            hostname:   getCustomerHost(customerId),
             port:       443,
             path:       url,
             method:     'POST',
@@ -171,11 +169,11 @@ function post(url, payload, auth, callback) {
     apiPost.end();
 }
 
-function del(url, auth, callback) {
+function del(customerId, url, auth, callback) {
     "use strict";
     var https   = require('https'),
         options = {
-            hostname:   config.api_url,
+            hostname:   getCustomerHost(customerId),
             port:       443,
             path:       url,
             method:     'DELETE',
@@ -206,6 +204,20 @@ function del(url, auth, callback) {
     });
     
     apiDel.end();
+}
+
+function getCustomerHost(customerId) {
+    "use strict";
+    for (var region in config.api_url) {
+        if (config.api_url[region].hasOwnProperty('start') && config.api_url[region].hasOwnProperty('end') && config.api_url[region].hasOwnProperty('url')) {
+            var startIndex = config.api_url[region].start,
+                endIndex   = config.api_url[region].end;
+            if (customerId >= startIndex && customerId <= endIndex) {
+                return config.api_url[region].url;
+            }
+        }
+    }
+    return null;
 }
 
 function getQueryString(args) {
