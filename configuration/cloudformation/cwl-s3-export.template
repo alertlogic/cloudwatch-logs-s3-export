@@ -32,7 +32,7 @@
         "S3BucketName": {
             "Description": "S3 bucket to archive CloudWatch logs into.",
             "Type": "String",
-            "MinLength" : "5"
+            "MinLength": "5"
         },
         "S3LogFolderName": {
             "Description": "Add a name of the folder to place logs into. If you leave this parameter empty, the name of the stack will be used.",
@@ -48,7 +48,7 @@
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.10.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.11.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
@@ -754,7 +754,9 @@
                         ]
                     },
                     "type": "s3",
-                    "logFormat": { "Ref": "LogFormat" },
+                    "logFormat": {
+                        "Ref": "LogFormat"
+                    },
                     "credentials": {
                         "type": "iam_role",
                         "arn": {
