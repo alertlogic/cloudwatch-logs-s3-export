@@ -4,15 +4,11 @@
     "Parameters": {
         "CloudWatchLogGroup": {
             "Description": "The name of the CloudWatch Logs Group to export to S3 bucket.",
-            "Type": "String",
-            "ConstraintDescription": "Must be an existing CloudWatch Log Group.",
-            "Default": ""
+            "Type": "String"
         },
         "KinesisShards": {
             "Description": "Number of shards to create for the Kinesis subscription stream.",
-            "Type": "Number",
-            "Default": "1",
-            "MinValue": "1"
+            "Type": "Number"
         },
         "LogFormat": {
             "Description": "Choose the format that best describes the type of logs in the selected log group",
@@ -27,18 +23,15 @@
         },
         "SubscriptionFilterPattern": {
             "Description": "Specify the CloudWatch subscription filter to be used to filter data sent to the S3.",
-            "Type": "String",
-            "Default": ""
+            "Type": "String"
         },
         "S3BucketName": {
             "Description": "S3 bucket to archive CloudWatch logs into.",
-            "Type": "String",
-            "MinLength": "5"
+            "Type": "String"
         },
         "S3LogFolderName": {
             "Description": "Add a name of the folder to place logs into. If you leave this parameter empty, the name of the stack will be used.",
-            "Type": "String",
-            "Default": ""
+            "Type": "String"
         },
         "LambdaS3BucketNamePrefix": {
             "Description": "The prefix of the S3 bucket which contains Lambda package to be used for archiving CloudWath Logs to S3. Note that the name of the bucket must contain a region name suffix. The following is the valid backet name syntax: <bucket_name_prefix>.us-east-1.",
@@ -54,21 +47,19 @@
         },
         "AlertLogicAWSAccountId": {
             "Description": "Alert Logic's AWS Account ID used for collecting data. A third-party role will be created to give read-only access to the 'S3BucketName'. Don't change this value",
-            "Type": "String",
-            "Default": "239734009475",
-            "AllowedValues": [
-                "239734009475"
-            ]
+            "Type": "String"
         },
         "AlertLogicPublicApiKey": {
-            "Description": "Public Api key issued to you by Alert Logic. Leave this field empty if you don't want to send data to Alert Logic's Log Manager.",
-            "Type": "String",
-            "Default": ""
+            "Description": "Public Api key issued to you by Alert Logic.",
+            "Type": "String"
         },
         "AlertLogicAccountId": {
             "Description": "Alert Logic's Account ID. Leave this field empty if you want send data to your account. Use child Account ID if you want to send to a child account.",
+            "Type": "String"
+        },
+        "DestinationArn": {
             "Type": "String",
-            "Default": ""
+            "Description": "CloudWatch Log Group Subscription Destination ARN"
         }
     },
     "Conditions": {
@@ -79,84 +70,20 @@
                 },
                 ""
             ]
-        }
-    },
-    "Metadata": {
-        "AWS::CloudFormation::Interface": {
-            "ParameterGroups": [
+        },
+        "CreateNewSubscription": {
+            "Fn::Equals": [
                 {
-                    "Label": {
-                        "default": "Alert Logic Log Manager Configuration"
-                    },
-                    "Parameters": [
-                        "AlertLogicAccountId",
-                        "AlertLogicPublicApiKey",
-                        "AlertLogicAWSAccountId"
-                    ]
+                    "Ref": "DestinationArn"
                 },
-                {
-                    "Label": {
-                        "default": "Data Collection Configuration"
-                    },
-                    "Parameters": [
-                        "CloudWatchLogGroup",
-                        "LogFormat",
-                        "S3BucketName",
-                        "S3LogFolderName",
-                        "SubscriptionFilterPattern"
-                    ]
-                },
-                {
-                    "Label": {
-                        "default": "Lambda Configuration"
-                    },
-                    "Parameters": [
-                        "LambdaS3BucketNamePrefix",
-                        "LambdaPackageName",
-                        "KinesisShards"
-                    ]
-                }
-            ],
-            "ParameterLabels": {
-                "AlertLogicAccountId": {
-                    "default": "Alert Logic account id:"
-                },
-                "AlertLogicAWSAccountId": {
-                    "default": "Alert Logic AWS account id to grant access to your data:"
-                },
-                "AlertLogicPublicApiKey": {
-                    "default": "Alert Logic API key:"
-                },
-                "LambdaS3BucketNamePrefix": {
-                    "default": "Lambda package S3 bucket prefix:"
-                },
-                "LambdaPackageName": {
-                    "default": "Lambda package name:"
-                },
-                "KinesisShards": {
-                    "default": "Kinesis shards count:"
-                },
-                "CloudWatchLogGroup": {
-                    "default": "CloudWatch log group name:"
-                },
-                "LogFormat": {
-                    "default": "Log Format:"
-                },
-                "S3BucketName": {
-                    "default": "S3 bucket name:"
-                },
-                "S3LogFolderName": {
-                    "default": "Logs folder name:"
-                },
-                "SubscriptionFilterPattern": {
-                    "default": "CloudWatch subscription filter:"
-                }
-            }
+                ""
+            ]
         }
     },
     "Resources": {
         "KinesisSubscriptionStream": {
             "Type": "AWS::Kinesis::Stream",
+            "Condition": "CreateNewSubscription",
             "Properties": {
                 "ShardCount": {
                     "Ref": "KinesisShards"
@@ -265,6 +192,7 @@
         },
         "CloudWatchLogsKinesisRole": {
             "Type": "AWS::IAM::Role",
+            "Condition": "CreateNewSubscription",
             "Properties": {
                 "AssumeRolePolicyDocument": {
                     "Version": "2012-10-17",
@@ -293,6 +221,7 @@
         },
         "CloudWatchLogsKinesisPolicy": {
             "Type": "AWS::IAM::Policy",
+            "Condition": "CreateNewSubscription",
             "Properties": {
                 "PolicyName": "CloudWatchLogsKinesisPolicy",
                 "Roles": [
@@ -340,8 +269,7 @@
                 }
             },
             "DependsOn": [
-                "CloudWatchLogsKinesisRole",
-                "KinesisSubscriptionStream"
+                "CloudWatchLogsKinesisRole"
             ]
         },
         "LambdaS3ExportWorkerRole": {
@@ -451,7 +379,7 @@
                         "Ref": "LambdaPackageName"
                     }
                 },
-                "Runtime": "nodejs",
+                "Runtime": "nodejs4.3",
                 "Timeout": "300"
             },
             "DependsOn": [
@@ -516,22 +444,30 @@
                                 "kinesis:ListStreams"
                             ],
                             "Resource": {
-                                "Fn::Join": [
-                                    "",
-                                    [
-                                        "arn:aws:kinesis:",
-                                        {
-                                            "Ref": "AWS::Region"
-                                        },
-                                        ":",
-                                        {
-                                            "Ref": "AWS::AccountId"
-                                        },
-                                        ":stream/",
-                                        {
-                                            "Ref": "KinesisSubscriptionStream"
-                                        }
-                                    ]
+                                "Fn::If" : [
+                                    "CreateNewSubscription",
+                                    {
+                                            "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:kinesis:",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                },
+                                                ":",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":stream/",
+                                                {
+                                                    "Ref": "KinesisSubscriptionStream"
+                                                }
+                                            ]
+                                        ]
+                                    },
+                                    {
+                                        "Ref": "DestinationArn"
+                                    }
                                 ]
                             }
                         }
@@ -539,8 +475,7 @@
                 }
             },
             "DependsOn": [
-                "LambdaDriverExecutionRole",
-                "KinesisSubscriptionStream"
+                "LambdaDriverExecutionRole"
             ]
         },
         "CreateLambdaDriverFunction": {
@@ -629,7 +564,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs",
+                "Runtime": "nodejs4.3",
                 "Timeout": "300"
             },
             "DependsOn": [
@@ -705,7 +640,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs",
+                "Runtime": "nodejs4.3",
                 "Timeout": "60"
             },
             "DependsOn": [
@@ -825,30 +760,37 @@
                 }
             },
             "DependsOn": [
-                "CreateLogSourceFunction",
-                "PutSubscriptionFilter"
+                "CreateLogSourceFunction"
             ]
         },
         "KinesisEventSourceMapping": {
             "Type": "AWS::Lambda::EventSourceMapping",
             "Properties": {
                 "EventSourceArn": {
-                    "Fn::Join": [
-                        "",
-                        [
-                            "arn:aws:kinesis:",
-                            {
-                                "Ref": "AWS::Region"
-                            },
-                            ":",
-                            {
-                                "Ref": "AWS::AccountId"
-                            },
-                            ":stream/",
-                            {
-                                "Ref": "KinesisSubscriptionStream"
-                            }
-                        ]
+                    "Fn::If" : [
+                        "CreateNewSubscription",
+                        {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "arn:aws:kinesis:",
+                                    {
+                                        "Ref": "AWS::Region"
+                                    },
+                                    ":",
+                                    {
+                                        "Ref": "AWS::AccountId"
+                                    },
+                                    ":stream/",
+                                    {
+                                        "Ref": "KinesisSubscriptionStream"
+                                    }
+                                ]
+                            ]
+                        },
+                        {
+                            "Ref": "DestinationArn"
+                        }
                     ]
                 },
                 "FunctionName": {
@@ -860,13 +802,13 @@
                 "StartingPosition": "TRIM_HORIZON"
             },
             "DependsOn": [
-                "KinesisSubscriptionStream",
                 "CreateLambdaDriverFunction",
                 "LambdaDriverExecutionPolicy"
             ]
         },
         "PutSubscriptionFilter": {
             "Type": "AWS::Logs::SubscriptionFilter",
+            "Condition": "CreateNewSubscription",
             "Properties": {
                 "DestinationArn": {
                     "Fn::Join": [
@@ -901,8 +843,7 @@
                 }
             },
             "DependsOn": [
-                "CloudWatchLogsKinesisPolicy",
-                "KinesisEventSourceMapping"
+                "CloudWatchLogsKinesisPolicy"
             ]
         }
     },
