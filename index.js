@@ -28,7 +28,7 @@ exports.handler = function(args, context) {
 
 function handleProcessLogs(args, resultCallback) {
     "use strict";
-    var s3 = new AWS.S3();
+    var s3 = new AWS.S3({'signatureVersion': 'v4'});
     async.waterfall([
         function setupS3endpoint(callback) {
             s3.getBucketLocation({"Bucket": args.s3BucketName}, function(err, data) {
@@ -91,20 +91,29 @@ function getMessages(logFormat, record, callback) {
         switch(logFormat) {
             case "AWS VPC Flow Logs":
                 logEvents.forEach(function (log) {
-                    // Get the timestamp for the beginning of the captured window 
+                    // Get the timestamp for the beginning of the captured window
                     var timestamp = log.message.split(' ')[10];
                     logs = logs + "VPC Flow Log Record: " + timestamp + " " + log.message + "\n";
                 });
                 break;
             case "AWS Lambda":
                 logEvents.forEach(function (log) {
-                    // Get the timestamp for the beginning of the captured window 
-                    var date = new Date(log.timestamp);  
+                    // Get the timestamp for the beginning of the captured window
+                    var date = new Date(log.timestamp);
                     logs = logs + "Lambda Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
                 });
                 break;
+            case "AWS IoT":
+                logEvents.forEach(function (log) {
+                    logs = logs + "IoT Log Record: " + log.message + "\n";
+                });
+                break;
             default:
-                console.log("Unsupported '" + logFormat + "' log format.");
+                logEvents.forEach(function (log) {
+                    // Get the timestamp for the beginning of the captured window
+                    var date = new Date(log.timestamp);
+                    logs = logs + "Custom CloudWatch Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
+                });
                 break;
         }
         return callback(null, logs);
