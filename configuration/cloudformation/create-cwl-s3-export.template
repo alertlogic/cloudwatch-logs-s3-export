@@ -760,7 +760,8 @@
                 }
             },
             "DependsOn": [
-                "CreateLogSourceFunction"
+                "CreateLogSourceFunction",
+                "LambdaDriverExecutionPolicy"
             ]
         },
         "KinesisEventSourceMapping": {
