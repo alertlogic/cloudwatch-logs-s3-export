@@ -28,7 +28,7 @@ exports.handler = function(args, context) {
 
 function handleProcessLogs(args, resultCallback) {
     "use strict";
-    var s3 = new AWS.S3();
+    var s3 = new AWS.S3({'signatureVersion': 'v4'});
     async.waterfall([
         function setupS3endpoint(callback) {
             s3.getBucketLocation({"Bucket": args.s3BucketName}, function(err, data) {
@@ -91,20 +91,29 @@ function getMessages(logFormat, record, callback) {
         switch(logFormat) {
             case "AWS VPC Flow Logs":
                 logEvents.forEach(function (log) {
-                    // Get the timestamp for the beginning of the captured window 
+                    // Get the timestamp for the beginning of the captured window
                     var timestamp = log.message.split(' ')[10];
                     logs = logs + "VPC Flow Log Record: " + timestamp + " " + log.message + "\n";
                 });
                 break;
             case "AWS Lambda":
                 logEvents.forEach(function (log) {
-                    // Get the timestamp for the beginning of the captured window 
-                    var date = new Date(log.timestamp);  
+                    // Get the timestamp for the beginning of the captured window
+                    var date = new Date(log.timestamp);
                     logs = logs + "Lambda Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
                 });
                 break;
+            case "AWS IoT":
+                logEvents.forEach(function (log) {
+                    logs = logs + "IoT Log Record: " + log.message + "\n";
+                });
+                break;
             default:
-                console.log("Unsupported '" + logFormat + "' log format.");
+                logEvents.forEach(function (log) {
+                    // Get the timestamp for the beginning of the captured window
+                    var date = new Date(log.timestamp);
+                    logs = logs + "Custom CloudWatch Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
+                });
                 break;
         }
         return callback(null, logs);
@@ -115,6 +124,8 @@ function uploadData(data, awsRegion, s3BucketName, objectName, s3, callback) {
     "use strict";
     if (!data || !data.length) { return callback(); }
 
+    console.log("Uploading data. Region: %s, BucketName: %s, ObjectName: %s",
+        awsRegion, s3BucketName, objectName);
     zlib.gzip(data, function (err, compressedData) {
         if (err) {
             console.log("Failed to compress data. LogGroup: '" + data.logGroup +
@@ -144,28 +155,15 @@ function uploadData(data, awsRegion, s3BucketName, objectName, s3, callback) {
 function getObjectName(awsRegion, s3LogFilePrefix, logFormat) {
     "use strict";
     var now = new Date(),
-        time_string = now.getFullYear() +
-            '-' +
-            now.getMonth() + '-' +
-            now.getDate() + '-' +
-            now.getHours() + '-' +
-            now.getMinutes() + '-' +
-            now.getSeconds(),
-        prefix = "";
-
-    switch(logFormat) {
-        case "AWS VPC Flow Logs":
-            prefix = (s3LogFilePrefix === "" ? "" : s3LogFilePrefix) + awsRegion + "_vpc_flow_logs_";
-            break;
-
-        case "AWS Lambda":
-            prefix = (s3LogFilePrefix === "" ? "" : s3LogFilePrefix) + awsRegion + "_lambda_logs_";
-            break;
-
-        default:
-            return null;
-    }
-    return prefix + Math.random().toString(36).substr(2, 4) + "_" + time_string + ".json.gz";
+        time_string = now.getFullYear() + '-' +
+            ("0" + (now.getMonth() + 1)).slice(-2) + '-' +
+            ("0" + (now.getDate() + 1)).slice(-2) + '-' +
+            ("0" + (now.getHours() + 1)).slice(-2) + '-' +
+            ("0" + (now.getMinutes() + 1)).slice(-2) + '-' +
+            ("0" + (now.getSeconds() + 1)).slice(-2),
+        suffix = (Math.random().toString(36) + '0000000000000000').slice(2, 18),
+        prefix = s3LogFilePrefix === "" ? "" : s3LogFilePrefix;
+    return prefix + time_string + "-" + suffix + ".json.gz";
 }
 
 function getS3Endpoint(region) {

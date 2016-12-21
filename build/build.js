@@ -37,7 +37,7 @@ var source = {
     ]
 };
 
-var awsRegions      = ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-northeast-1'];
+var awsRegions      = ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-northeast-1', 'ap-southeast-2', 'ap-southeast-1', 'eu-central-1'];
 
 /*
  * Create the node_modules directory so that it exists for installation regardless of module definitions for deployment
@@ -100,7 +100,7 @@ async.waterfall([
                     required: true
                 },
                 bucketPrefix: {
-                    description: 'Provide backet name prefix to upload ' + fileName + '. The region name will be appended to the name you provide.',
+                    description: 'Provide backet name prefix to upload files. The region name will be appended to the name you provide.',
                     required: true,
                     default: 'alertlogic-public-repo'
                 }
@@ -113,12 +113,13 @@ async.waterfall([
 
             var AWS             = new require('aws-sdk');
                 credentials = new AWS.SharedIniFileCredentials({profile: input.profile});
-                code = require('fs').readFileSync(
-                                        require('path').resolve(
-                                            __dirname,
-                                            '../target/' + fileName));
                 AWS.config.credentials = credentials;
-                var s3 = new AWS.S3();
+            var s3 = new AWS.S3({'signatureVersion': 'v4'});
+
+           code = require('fs').readFileSync(
+                                    require('path').resolve(
+                                        __dirname,
+                                        '../target/' + fileName));
             
             async.eachSeries(awsRegions, function(region, seriesCallback) {
                 var bucketName = input.bucketPrefix + "." + region;

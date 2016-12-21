@@ -253,13 +253,49 @@ function getPolicy(args, createFlag, callback) {
 
 function createPolicy(args, callback) {
     "use strict";
-    var params = {
+    var params = {};
+
+    switch(args.logFormat) {
+    case "AWS VPC Flow Logs":
+        params = {
+            customerId: args.customerId,
+            auth:       args.auth,
+            name:       args.name,
+            type:       args.type,
+            policy: {
+                default: "false",
+                template_id:    "BFE6243E-E57C-4ADE-B444-C5999E8FE3A7"
+            }
+        };
+        break;
+    case "AWS IoT":
+        params = {
+            customerId: args.customerId,
+            auth:       args.auth,
+            name:       args.name,
+            type:       args.type,
+            policy: {
+                default: "false",
+                timestamp: {
+                    format: "YYYY-MM-DD hh:mm:ss"
+                },
+                multiline: {
+                    is_multiline: "false"
+                }
+            }
+        };
+        break;
+    default: 
+        params = {
             customerId: args.customerId,
             auth:       args.auth,
             name:       args.name,
             type:       args.type,
             policy:     args.policy
         };
+    }
+
+    console.log("Creating policy document: %s", JSON.stringify(params));
     defenderApi.createPolicy(params, function(err, result) {
         if (err) {
             return callback(err);
@@ -298,6 +334,7 @@ function doCreateSource(args, credentialId, policyId, callback) {
             type:           args.type,
             source:         args[args.type]
         };
+    console.log("Creating source: %s", JSON.stringify(params));
     defenderApi.createSource(params, function(err, result) {
         if (err) {
             return callback(err);
@@ -333,7 +370,7 @@ function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
         bucketName  = lifeCycleParams.bucket.slice(0, index),
         prefix      = lifeCycleParams.bucket.slice(index + 1);
 
-    var s3 = new AWS.S3();
+    var s3 = new AWS.S3({'signatureVersion': 'v4'});
     async.waterfall([
         function setupS3endpoint(asyncCallback) {
             s3.getBucketLocation({"Bucket": bucketName}, function(err, data) {

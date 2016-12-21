@@ -1,0 +1,862 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "A stack that sets up a reliable export of the CloudWatch Logs to S3 bucket. You will be billed for the AWS resources used if you create a stack from this template. This template requires setting the \"Create IAM resources\" parameter to True.",
+    "Parameters": {
+        "CloudWatchLogGroup": {
+            "Description": "The name of the CloudWatch Logs Group to export to S3 bucket.",
+            "Type": "String"
+        },
+        "KinesisShards": {
+            "Description": "Number of shards to create for the Kinesis subscription stream.",
+            "Type": "Number"
+        },
+        "LogFormat": {
+            "Description": "Choose the format that best describes the type of logs in the selected log group",
+            "Type": "String",
+            "Default": "AWS VPC Flow Logs",
+            "AllowedValues": [
+                "AWS VPC Flow Logs",
+                "AWS Lambda",
+                "AWS IoT",
+                "Custom"
+            ]
+        },
+        "SubscriptionFilterPattern": {
+            "Description": "Specify the CloudWatch subscription filter to be used to filter data sent to the S3.",
+            "Type": "String"
+        },
+        "S3BucketName": {
+            "Description": "S3 bucket to archive CloudWatch logs into.",
+            "Type": "String"
+        },
+        "S3LogFolderName": {
+            "Description": "Add a name of the folder to place logs into. If you leave this parameter empty, the name of the stack will be used.",
+            "Type": "String"
+        },
+        "LambdaS3BucketNamePrefix": {
+            "Description": "The prefix of the S3 bucket which contains Lambda package to be used for archiving CloudWath Logs to S3. Note that the name of the bucket must contain a region name suffix. The following is the valid backet name syntax: <bucket_name_prefix>.us-east-1.",
+            "Type": "String",
+            "Default": "alertlogic-public-repo",
+            "MinLength": "5"
+        },
+        "LambdaPackageName": {
+            "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
+            "Type": "String",
+            "Default": "cloudwatch-logs-s3-export-0.0.11.zip",
+            "MinLength": "5"
+        },
+        "AlertLogicAWSAccountId": {
+            "Description": "Alert Logic's AWS Account ID used for collecting data. A third-party role will be created to give read-only access to the 'S3BucketName'. Don't change this value",
+            "Type": "String"
+        },
+        "AlertLogicPublicApiKey": {
+            "Description": "Public Api key issued to you by Alert Logic.",
+            "Type": "String"
+        },
+        "AlertLogicAccountId": {
+            "Description": "Alert Logic's Account ID. Leave this field empty if you want send data to your account. Use child Account ID if you want to send to a child account.",
+            "Type": "String"
+        },
+        "DestinationArn": {
+            "Type": "String",
+            "Description": "CloudWatch Log Group Subscription Destination ARN"
+        }
+    },
+    "Conditions": {
+        "EmptyPrefix": {
+            "Fn::Equals": [
+                {
+                    "Ref": "S3LogFolderName"
+                },
+                ""
+            ]
+        },
+        "CreateNewSubscription": {
+            "Fn::Equals": [
+                {
+                    "Ref": "DestinationArn"
+                },
+                ""
+            ]
+        }
+    },
+    "Resources": {
+        "KinesisSubscriptionStream": {
+            "Type": "AWS::Kinesis::Stream",
+            "Condition": "CreateNewSubscription",
+            "Properties": {
+                "ShardCount": {
+                    "Ref": "KinesisShards"
+                }
+            }
+        },
+        "AlertLogicS3AccessRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:iam::",
+                                            {
+                                                "Ref": "AlertLogicAWSAccountId"
+                                            },
+                                            ":root"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": "sts:AssumeRole",
+                            "Condition": {
+                                "StringEquals": {
+                                    "sts:ExternalId": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                {
+                                                    "Ref": "AWS::StackName"
+                                                },
+                                                ":",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                }
+                                            ]
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AlertLogicS3AccessPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            "-",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            "-AlertLogicS3AccessPolicy"
+                        ]
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "AlertLogicS3AccessRole"
+                    }
+                ],
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketLocation",
+                                "s3:GetObject",
+                                "s3:ListBucket"
+                            ],
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "S3BucketName"
+                                        },
+                                        "*"
+                                    ]
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "CloudWatchLogsKinesisRole": {
+            "Type": "AWS::IAM::Role",
+            "Condition": "CreateNewSubscription",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "logs.",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            ".amazonaws.com"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }
+            }
+        },
+        "CloudWatchLogsKinesisPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Condition": "CreateNewSubscription",
+            "Properties": {
+                "PolicyName": "CloudWatchLogsKinesisPolicy",
+                "Roles": [
+                    {
+                        "Ref": "CloudWatchLogsKinesisRole"
+                    }
+                ],
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "kinesis:PutRecord",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:kinesis:",
+                                        {
+                                            "Ref": "AWS::Region"
+                                        },
+                                        ":",
+                                        {
+                                            "Ref": "AWS::AccountId"
+                                        },
+                                        ":stream/",
+                                        {
+                                            "Ref": "KinesisSubscriptionStream"
+                                        }
+                                    ]
+                                ]
+                            }
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": "iam:PassRole",
+                            "Resource": {
+                                "Fn::GetAtt": [
+                                    "CloudWatchLogsKinesisRole",
+                                    "Arn"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "DependsOn": [
+                "CloudWatchLogsKinesisRole"
+            ]
+        },
+        "LambdaS3ExportWorkerRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }
+            }
+        },
+        "LambdaS3ExportWorkerPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LambdaS3ExportWorkerPolicy",
+                "Roles": [
+                    {
+                        "Ref": "LambdaS3ExportWorkerRole"
+                    }
+                ],
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "logs:DescribeLogStreams",
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
+                            "Resource": "arn:aws:logs:*:*:*"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutObject"
+                            ],
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "S3BucketName"
+                                        },
+                                        "/*"
+                                    ]
+                                ]
+                            }
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketLocation",
+                                "s3:GetLifecycleConfiguration",
+                                "s3:PutLifecycleConfiguration"
+                            ],
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "S3BucketName"
+                                        }
+                                    ]
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "CreateLambdaS3ExportWorkerFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "Description": "CloudWatch Logs export to S3 function.",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaS3ExportWorkerRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "alertlogic-public-repo.",
+                                {
+                                    "Ref": "AWS::Region"
+                                }
+                            ]
+                        ]
+                    },
+                    "S3Key": {
+                        "Ref": "LambdaPackageName"
+                    }
+                },
+                "Runtime": "nodejs4.3",
+                "Timeout": "300"
+            },
+            "DependsOn": [
+                "LambdaS3ExportWorkerPolicy"
+            ]
+        },
+        "LambdaDriverExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }
+            }
+        },
+        "LambdaDriverExecutionPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LambdaDriverExecutionPolicy",
+                "Roles": [
+                    {
+                        "Ref": "LambdaDriverExecutionRole"
+                    }
+                ],
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "lambda:InvokeFunction",
+                            "Resource": {
+                                "Fn::GetAtt": [
+                                    "CreateLambdaS3ExportWorkerFunction",
+                                    "Arn"
+                                ]
+                            }
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "logs:DescribeLogStreams",
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
+                            "Resource": "arn:aws:logs:*:*:*"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "kinesis:GetRecords",
+                                "kinesis:GetShardIterator",
+                                "kinesis:DescribeStream",
+                                "kinesis:ListStreams"
+                            ],
+                            "Resource": {
+                                "Fn::If" : [
+                                    "CreateNewSubscription",
+                                    {
+                                            "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:kinesis:",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                },
+                                                ":",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":stream/",
+                                                {
+                                                    "Ref": "KinesisSubscriptionStream"
+                                                }
+                                            ]
+                                        ]
+                                    },
+                                    {
+                                        "Ref": "DestinationArn"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "DependsOn": [
+                "LambdaDriverExecutionRole"
+            ]
+        },
+        "CreateLambdaDriverFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaDriverExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Description": "Pre-processor wrapper function that invokes the actual CloudWatch Logs export function with custom attributes.",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "var awsRegion = '",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "',\n",
+                                "    lambdaFunctionName  = '",
+                                {
+                                    "Ref": "CreateLambdaS3ExportWorkerFunction"
+                                },
+                                "',\n",
+                                "    logFormat = '",
+                                {
+                                    "Ref": "LogFormat"
+                                },
+                                "',\n",
+                                "    s3BucketName = '",
+                                {
+                                    "Ref": "S3BucketName"
+                                },
+                                "',\n",
+                                "    s3LogFilePrefix = '",
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            {
+                                                "Fn::If": [
+                                                    "EmptyPrefix",
+                                                    {
+                                                        "Ref": "AWS::StackName"
+                                                    },
+                                                    {
+                                                        "Ref": "S3LogFolderName"
+                                                    }
+                                                ]
+                                            },
+                                            "/"
+                                        ]
+                                    ]
+                                },
+                                "',\n",
+                                "    AWS = require('aws-sdk');\n",
+                                "exports.handler = function(event, context) {\n",
+                                "    AWS.config.update({region: awsRegion});\n",
+                                "    var lambda  = new AWS.Lambda({apiVersion: '2015-03-31'}),\n",
+                                "        args = {\n",
+                                "            awsRegion:         awsRegion,\n",
+                                "            s3BucketName:      s3BucketName,\n",
+                                "            s3LogFilePrefix:   s3LogFilePrefix,\n",
+                                "            logFormat:         logFormat,\n",
+                                "            records:           event.Records\n",
+                                "        },\n",
+                                "        payload = {operation: 'processLogs', data: args},\n",
+                                "        params  = {\n",
+                                "            FunctionName:      lambdaFunctionName,\n",
+                                "            InvocationType:    'RequestResponse',\n",
+                                "            Payload:           JSON.stringify(payload)\n",
+                                "        };\n",
+                                "    lambda.invoke(params, function(err, data) {\n",
+                                "        if (err) {\n",
+                                "            console.error('Failed to invoke lambda function. Error: ' + JSON.stringify(err));\n",
+                                "            return context.fail(err);\n",
+                                "        }\n",
+                                "        return context.done();\n",
+                                "    });\n",
+                                "};"
+                            ]
+                        ]
+                    }
+                },
+                "Runtime": "nodejs4.3",
+                "Timeout": "300"
+            },
+            "DependsOn": [
+                "LambdaDriverExecutionPolicy"
+            ]
+        },
+        "CreateLogSourceFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaDriverExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Description": "Create Alert Logic Log Source.",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "var awsRegion = '",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "',\n",
+                                "    lambdaFunctionName  = '",
+                                {
+                                    "Ref": "CreateLambdaS3ExportWorkerFunction"
+                                },
+                                "',\n",
+                                "    response = require('cfn-response'),\n",
+                                "    AWS = require('aws-sdk');\n",
+                                "\n",
+                                "exports.handler = function(event, context) {\n",
+                                "    var responseData = {},\n",
+                                "        payload      = {};\n",
+                                "    AWS.config.update({region: awsRegion});\n",
+                                "    console.log('REQUEST RECEIVED:\\n', JSON.stringify(event));\n",
+                                "    if (event.RequestType === 'Delete') {\n",
+                                "        payload = {operation: 'deleteSource', data: event.ResourceProperties.CreateSourceParams};\n",
+                                "    } else if(event.RequestType === 'Create') { \n",
+                                "        payload = {operation: 'createSource', data: event.ResourceProperties.CreateSourceParams};\n",
+                                "    } else {\n",
+                                "        return response.send(event, context, response.SUCCESS);\n",
+                                "    }\n",
+                                "    var lambda  = new AWS.Lambda({apiVersion: '2015-03-31'}),\n",
+                                "        params = {\n",
+                                "            FunctionName:      lambdaFunctionName,\n",
+                                "            InvocationType:    'RequestResponse',\n",
+                                "            Payload:           JSON.stringify(payload)\n",
+                                "        };\n",
+                                "    lambda.invoke(params, function(err, result) {\n",
+                                "        if (err) {\n",
+                                "            responseData = {Error: 'Lambda Invoke call failed. ' + JSON.stringify(err)};\n",
+                                "            return response.send(event, context, response.FAILED, responseData);\n",
+                                "        }\n",
+                                "        console.log('Result: ' + JSON.stringify(result));\n",
+                                "        var data = JSON.parse(result.Payload);\n",
+                                "        if (data && data.hasOwnProperty('id')) {\n",
+                                "            responseData['id'] = data.id;\n",
+                                "            return response.send(event, context, response.SUCCESS, responseData);\n",
+                                "        } else if (event.RequestType === 'Delete') {\n",
+                                "            return response.send(event, context, response.SUCCESS, data);\n",
+                                "        } else {\n",
+                                "            responseData = {Error: 'Invalid source id.'};\n",
+                                "            return response.send(event, context, response.FAILED, responseData);\n",
+                                "        }\n",
+                                "    });\n",
+                                "};"
+                            ]
+                        ]
+                    }
+                },
+                "Runtime": "nodejs4.3",
+                "Timeout": "60"
+            },
+            "DependsOn": [
+                "CreateLambdaS3ExportWorkerFunction"
+            ]
+        },
+        "LogSourceInfo": {
+            "Type": "Custom::LogSourceInfo",
+            "Properties": {
+                "ServiceToken": {
+                    "Fn::GetAtt": [
+                        "CreateLogSourceFunction",
+                        "Arn"
+                    ]
+                },
+                "CreateSourceParams": {
+                    "customerId": {
+                        "Ref": "AlertLogicAccountId"
+                    },
+                    "auth": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                {
+                                    "Ref": "AlertLogicPublicApiKey"
+                                },
+                                ":"
+                            ]
+                        ]
+                    },
+                    "name": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "-",
+                                {
+                                    "Ref": "AWS::AccountId"
+                                },
+                                "-",
+                                {
+                                    "Ref": "AWS::Region"
+                                }
+                            ]
+                        ]
+                    },
+                    "type": "s3",
+                    "logFormat": {
+                        "Ref": "LogFormat"
+                    },
+                    "credentials": {
+                        "type": "iam_role",
+                        "arn": {
+                            "Fn::GetAtt": [
+                                "AlertLogicS3AccessRole",
+                                "Arn"
+                            ]
+                        },
+                        "externalId": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "AWS::StackName"
+                                    },
+                                    ":",
+                                    {
+                                        "Ref": "AWS::AccountId"
+                                    },
+                                    ":",
+                                    {
+                                        "Ref": "AWS::Region"
+                                    }
+                                ]
+                            ]
+                        }
+                    },
+                    "policy": {
+                        "default": "false",
+                        "multiline": {
+                            "is_multiline": "false"
+                        },
+                        "timestamp": {
+                            "format": ""
+                        }
+                    },
+                    "s3": {
+                        "enabled": "true",
+                        "bucket": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "S3BucketName"
+                                    },
+                                    "/",
+                                    {
+                                        "Fn::If": [
+                                            "EmptyPrefix",
+                                            {
+                                                "Ref": "AWS::StackName"
+                                            },
+                                            {
+                                                "Ref": "S3LogFolderName"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            ]
+                        },
+                        "file_pattern": ".*",
+                        "time_zone": "GMT",
+                        "max_collection_interval": "300"
+                    }
+                }
+            },
+            "DependsOn": [
+                "CreateLogSourceFunction",
+                "LambdaDriverExecutionPolicy"
+            ]
+        },
+        "KinesisEventSourceMapping": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "Properties": {
+                "EventSourceArn": {
+                    "Fn::If" : [
+                        "CreateNewSubscription",
+                        {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "arn:aws:kinesis:",
+                                    {
+                                        "Ref": "AWS::Region"
+                                    },
+                                    ":",
+                                    {
+                                        "Ref": "AWS::AccountId"
+                                    },
+                                    ":stream/",
+                                    {
+                                        "Ref": "KinesisSubscriptionStream"
+                                    }
+                                ]
+                            ]
+                        },
+                        {
+                            "Ref": "DestinationArn"
+                        }
+                    ]
+                },
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "CreateLambdaDriverFunction",
+                        "Arn"
+                    ]
+                },
+                "StartingPosition": "TRIM_HORIZON"
+            },
+            "DependsOn": [
+                "CreateLambdaDriverFunction",
+                "LambdaDriverExecutionPolicy"
+            ]
+        },
+        "PutSubscriptionFilter": {
+            "Type": "AWS::Logs::SubscriptionFilter",
+            "Condition": "CreateNewSubscription",
+            "Properties": {
+                "DestinationArn": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:kinesis:",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            ":",
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            ":stream/",
+                            {
+                                "Ref": "KinesisSubscriptionStream"
+                            }
+                        ]
+                    ]
+                },
+                "FilterPattern": {
+                    "Ref": "SubscriptionFilterPattern"
+                },
+                "LogGroupName": {
+                    "Ref": "CloudWatchLogGroup"
+                },
+                "RoleArn": {
+                    "Fn::GetAtt": [
+                        "CloudWatchLogsKinesisRole",
+                        "Arn"
+                    ]
+                }
+            },
+            "DependsOn": [
+                "CloudWatchLogsKinesisPolicy"
+            ]
+        }
+    },
+    "Outputs": {
+        "LogManagerSourceId": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "LogSourceInfo",
+                    "id"
+                ]
+            },
+            "Description": "Alert Logic S3 Log Source Id"
+        }
+    }
+}
