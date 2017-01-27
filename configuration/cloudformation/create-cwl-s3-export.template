@@ -644,7 +644,8 @@
                 "Timeout": "60"
             },
             "DependsOn": [
-                "CreateLambdaS3ExportWorkerFunction"
+                "CreateLambdaS3ExportWorkerFunction",
+                "LambdaDriverExecutionPolicy"
             ]
         },
         "LogSourceInfo": {
