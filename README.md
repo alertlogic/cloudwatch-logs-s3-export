@@ -45,6 +45,8 @@ run ```npm run release``` to update the version
   Region Name             | Region           | CloudFormation Template
  -------------------------| -----------------| -----------------
  US East (N. Virginia)    | us-east-1        | https://s3.amazonaws.com/alertlogic-public-repo.us-east-1/templates/cwl-s3-export.template
+ US East (Ohio)           | us-east-2        | https://s3.amazonaws.com/alertlogic-public-repo.us-east-2/templates/cwl-s3-export.template
+ US West (N. California)  | us-west-1        | https://s3.amazonaws.com/alertlogic-public-repo.us-west-1/templates/cwl-s3-export.template
  US West (Oregon)         | us-west-2        | https://s3.amazonaws.com/alertlogic-public-repo.us-west-2/templates/cwl-s3-export.template
  EU (Ireland)			  | eu-west-1        | https://s3.amazonaws.com/alertlogic-public-repo.eu-west-1/templates/cwl-s3-export.template
  EU (Frankfurt)           | eu-central-1     | https://s3.amazonaws.com/alertlogic-public-repo.eu-central-1/templates/cwl-s3-export.template
