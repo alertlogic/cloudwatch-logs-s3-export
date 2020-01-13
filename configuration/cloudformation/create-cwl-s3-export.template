@@ -631,7 +631,7 @@
                                     "Ref": "CreateLambdaS3ExportWorkerFunction"
                                 },
                                 "',\n",
-                                "    response = require('cfn-response'),\n",
+                                "    response = require('./cfn-response'),\n",
                                 "    AWS = require('aws-sdk');\n",
                                 "\n",
                                 "exports.handler = function(event, context) {\n",

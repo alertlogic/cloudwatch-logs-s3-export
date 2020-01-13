@@ -233,7 +233,7 @@
                                     "Ref": "CloudWatchLogGroup"
                                 },
                                 "',\n",
-                                "    response = require('cfn-response'),\n",
+                                "    response = require('./cfn-response'),\n",
                                 "    AWS = require('aws-sdk');\n",
                                 "exports.handler = function(event, context) {\n",
                                 "    AWS.config.update({region: awsRegion});\n",
