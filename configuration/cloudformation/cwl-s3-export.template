@@ -266,7 +266,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs8.10",
+                "Runtime": "nodejs10.x",
                 "Timeout": "60"
             },
             "DependsOn": [
