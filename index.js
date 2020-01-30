@@ -72,7 +72,7 @@ function processLogs(args, s3, resultCallback) {
 
 function getMessages(logFormat, record, callback) {
     "use strict";
-    zlib.gunzip(new Buffer(record.kinesis.data, 'base64'), function(err, result) {
+    zlib.gunzip(Buffer.from(record.kinesis.data, 'base64'), function(err, result) {
         if (err) {
             console.log("Failed to uncompress data. Record: '" + JSON.stringify(record) +
                         "'. Error: " + JSON.stringify(err));
@@ -136,7 +136,7 @@ function uploadData(data, awsRegion, s3BucketName, objectName, s3, callback) {
         var params = {
                 "Bucket": s3BucketName,
                 "Key": objectName,
-                "Body": new Buffer(compressedData, 'base64'),
+                "Body": Buffer.from(compressedData, 'base64'),
                 "ContentType": "application/json",
                 "ContentEncoding": "gzip" 
             };

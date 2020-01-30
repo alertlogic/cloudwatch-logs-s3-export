@@ -16,6 +16,8 @@ var async             = require('async'),
     accountList       = [],
     execfile          = require('child_process').execFile;
 
+const TEN_MEGA_BYTE = 1024 * 1024 * 10;
+
 console.log('Building Lambda package to ' + deploy + ', base = ' + base);
 
 /*
@@ -37,7 +39,7 @@ var source = {
     ]
 };
 
-var awsRegions      = ['us-east-1', 'us-east-2', 'us-west-1','us-west-2', 'eu-west-1', 'ap-northeast-1', 'ap-southeast-2', 'ap-southeast-1', 'eu-central-1'];
+var awsRegions      = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2', 'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1', 'ap-northeast-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2', 'ap-south-1', 'ca-central-1', 'sa-east-1'];
 
 /*
  * Create the node_modules directory so that it exists for installation regardless of module definitions for deployment
@@ -89,9 +91,13 @@ async.waterfall([
 
         var fileName = 'cloudwatch-logs-s3-export-' + pkg.version + '.zip';
         var zipped  = '../' + fileName;
-        process.chdir('target/cloudwatch-logs-s3-export');
-        execfile('zip', ['-r', '-X', zipped, './'], function(err, stdout) {});
-        process.chdir('../../');
+        console.log("Compressing: %s, Dir: %s", zipped, process.cwd());
+        execfile('zip', ['-r', '-X', zipped, './'], {maxBuffer: TEN_MEGA_BYTE, cwd: 'target/cloudwatch-logs-s3-export'}, function(err, stdout) {
+            if (err) {
+                return callback(err);
+            }
+            return callback(null, fileName);
+        });
 
         // Prompt for profile to use to deploy our package to S3
         var promptSchema = {
@@ -121,7 +127,8 @@ async.waterfall([
                                         __dirname,
                                         '../target/' + fileName));
             
-            async.eachSeries(awsRegions, function(region, seriesCallback) {
+            // async.eachSeries(awsRegions, function(region, seriesCallback) {
+            async.each(awsRegions, function(region, seriesCallback) {
                 var bucketName = input.bucketPrefix + "." + region;
                 console.log("Uploading '" + fileName + "' to '" + bucketName + "' bucket.");
                 s3.endpoint = getS3Endpoint(region);
@@ -149,7 +156,7 @@ async.waterfall([
                 } else {
                     console.log("Successfully uploaded to S3.");
                     // Update cloudformation with new default values
-                    return updateCFTemplate(input.bucketPrefix, fileName, callback);
+                    return updateCFTemplate(input.profile, input.bucketPrefix, fileName, callback);
                 }
             });
         });
@@ -158,7 +165,7 @@ async.waterfall([
         return onErr(err)
     });
 
-function updateCFTemplate(bucketPrefix, objectName, resultCallback) {
+function updateCFTemplate(profile, bucketPrefix, objectName, resultCallback) {
     "use strict";
     var jsonTemplateFile = "configuration/cloudformation/cwl-s3-export.template";
     console.log("Updating '" + jsonTemplateFile + "'.");
@@ -191,7 +198,67 @@ function updateCFTemplate(bucketPrefix, objectName, resultCallback) {
             }
         }
     ], function (err) {
-        return resultCallback(err);
+        if (err) {
+            return resultCallback(err);
+        } else {
+            var templates = ["cwl-s3-export.template", "create-cwl-s3-export.template"];
+            async.each(templates, function(template, seriesCallback) {
+                var params = {
+                    profile: profile,
+                    fileDir:    "../configuration/cloudformation/",
+                    fileName:   template,
+                    s3KeyPrefix: "templates",
+                    bucketPrefix: bucketPrefix
+                }
+                uploadFile(params, seriesCallback);
+            },
+            function(err) {
+                return resultCallback(err)
+            });
+        }
+    });
+}
+
+function uploadFile(params, callback) {
+    var AWS             = new require('aws-sdk');
+        credentials = new AWS.SharedIniFileCredentials({profile: params.profile});
+        AWS.config.credentials = credentials,
+        s3 = new AWS.S3({'signatureVersion': 'v4'}),
+        fileName = params.fileName, 
+        code = require('fs').readFileSync(
+                                require('path').resolve(
+                                    __dirname,
+                                    params.fileDir + fileName));
+        console.log("Code size: " + code.byteLength)
+
+    async.each(awsRegions, function(region, seriesCallback) {
+        var bucketName = params.bucketPrefix + "." + region;
+        s3.endpoint = getS3Endpoint(region);
+        console.log("Uploading '" + fileName + "' to '" + bucketName + "' bucket.");
+        var s3Params = {
+                "Bucket": bucketName,
+                "Key": params.s3KeyPrefix + "/" + fileName,
+                "Body": code,
+                "ContentType": "application/binary"
+            };
+        s3.putObject(s3Params, function(err, _result) {
+            if (err) {
+                console.log("Failed to persist '" + fileName + "' object to '" + bucketName +
+                            "' bucket. Error: " + JSON.stringify(err));
+                return seriesCallback(err);
+            } else {
+                // console.log("Successfully persisted '" + fileName + "'.");
+                return seriesCallback(null);
+            }
+        });
+    },
+    function(err) {
+        if (err) {
+            console.log("Upload to S3 failed. Error: " + JSON.stringify(err));
+            return callback(err);
+        } else {
+            return callback(null, params);
+        }
     });
 }
 

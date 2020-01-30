@@ -54,7 +54,7 @@
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.11.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.12.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
@@ -233,7 +233,7 @@
                                     "Ref": "CloudWatchLogGroup"
                                 },
                                 "',\n",
-                                "    response = require('cfn-response'),\n",
+                                "    response = require('./cfn-response'),\n",
                                 "    AWS = require('aws-sdk');\n",
                                 "exports.handler = function(event, context) {\n",
                                 "    AWS.config.update({region: awsRegion});\n",
@@ -247,14 +247,14 @@
                                 "\n",
                                 "   cloudwatchlogs.describeSubscriptionFilters({logGroupName: logGroup}, function(err, data) {\n",
                                 "   if (err) {\n",
-                                "       responseData = {Error: 'DescribeSubscriptionFilters call failed'};\n", 
+                                "       responseData = {Error: 'DescribeSubscriptionFilters call failed'};\n",
                                 "       console.log(responseData.Error + ':\\n', err);\n",
                                 "       return response.send(event, context, response.FAILED, responseData);\n",
                                 "   }\n",
                                 "\n",
                                 "   if (data.subscriptionFilters.length) {\n",
                                 "       if (data.subscriptionFilters[0].destinationArn.split(':')[2] !== 'kinesis'){\n",
-                                "           responseData = {Error: 'Only kinesis subscribers are supported.'};\n", 
+                                "           responseData = {Error: 'Only kinesis subscribers are supported.'};\n",
                                 "           return response(event, context, response.FAILED, responseData);\n",
                                 "       }\n",
                                 "       responseData = data.subscriptionFilters[0];\n",
@@ -266,7 +266,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs8.10",
+                "Runtime": "nodejs10.x",
                 "Timeout": "60"
             },
             "DependsOn": [
@@ -276,24 +276,51 @@
         "CloudWatchLogGroupInfo": {
             "Type": "Custom::CloudWatchLogGroupInfo",
             "Properties": {
-                "ServiceToken": { "Fn::GetAtt" : ["GetCloudWatchLogGroupInfo", "Arn"] }
+                "ServiceToken": {
+                    "Fn::GetAtt": [
+                        "GetCloudWatchLogGroupInfo",
+                        "Arn"
+                    ]
+                }
             }
         },
         "StackCreateCloudWatchLogExport": {
             "Type": "AWS::CloudFormation::Stack",
             "Properties": {
                 "Parameters": {
-                    "CloudWatchLogGroup": {"Ref": "CloudWatchLogGroup"},
-                    "KinesisShards": {"Ref": "KinesisShards"},
-                    "LogFormat": {"Ref": "LogFormat"},
-                    "SubscriptionFilterPattern": {"Ref": "SubscriptionFilterPattern"},
-                    "S3BucketName": {"Ref": "S3BucketName"},
-                    "S3LogFolderName": {"Ref": "S3LogFolderName"},
-                    "LambdaS3BucketNamePrefix": {"Ref": "LambdaS3BucketNamePrefix"},
-                    "LambdaPackageName": {"Ref": "LambdaPackageName"},
-                    "AlertLogicAWSAccountId": {"Ref": "AlertLogicAWSAccountId"},
-                    "AlertLogicPublicApiKey": {"Ref": "AlertLogicPublicApiKey"},
-                    "AlertLogicAccountId": {"Ref": "AlertLogicAccountId"},
+                    "CloudWatchLogGroup": {
+                        "Ref": "CloudWatchLogGroup"
+                    },
+                    "KinesisShards": {
+                        "Ref": "KinesisShards"
+                    },
+                    "LogFormat": {
+                        "Ref": "LogFormat"
+                    },
+                    "SubscriptionFilterPattern": {
+                        "Ref": "SubscriptionFilterPattern"
+                    },
+                    "S3BucketName": {
+                        "Ref": "S3BucketName"
+                    },
+                    "S3LogFolderName": {
+                        "Ref": "S3LogFolderName"
+                    },
+                    "LambdaS3BucketNamePrefix": {
+                        "Ref": "LambdaS3BucketNamePrefix"
+                    },
+                    "LambdaPackageName": {
+                        "Ref": "LambdaPackageName"
+                    },
+                    "AlertLogicAWSAccountId": {
+                        "Ref": "AlertLogicAWSAccountId"
+                    },
+                    "AlertLogicPublicApiKey": {
+                        "Ref": "AlertLogicPublicApiKey"
+                    },
+                    "AlertLogicAccountId": {
+                        "Ref": "AlertLogicAccountId"
+                    },
                     "DestinationArn": {
                         "Fn::GetAtt": [
                             "CloudWatchLogGroupInfo",
