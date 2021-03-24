@@ -267,7 +267,7 @@
                     }
                 },
                 "Runtime": "nodejs10.x",
-                "Timeout": "60"
+                "Timeout": "180"
             },
             "DependsOn": [
                 "LambdaGetCloudWatchLogGroupInfoExecutionPolicy"
