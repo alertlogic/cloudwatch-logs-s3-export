@@ -223,50 +223,71 @@
                         "Fn::Join": [
                             "",
                             [
-                                "var awsRegion = '",
-                                {
-                                    "Ref": "AWS::Region"
-                                },
-                                "',\n",
-                                "    logGroup = '",
-                                {
-                                    "Ref": "CloudWatchLogGroup"
-                                },
-                                "',\n",
-                                "    response = require('./cfn-response'),\n",
-                                "    AWS = require('aws-sdk');\n",
-                                "exports.handler = function(event, context) {\n",
-                                "    AWS.config.update({region: awsRegion});\n",
+                                "'use strict';\n",
+                                "\n",
+                                "const AWS = require('aws-sdk');\n",
+                                "const response = require('./cfn-response');\n",
+                                "\n",
+                                "function hasKinesisArn(subscriber) {\n",
+                                "    const awsResourceType = subscriber.destinationArn.split(':')[2];\n",
+                                "    return awsResourceType === 'kinesis';\n",
+                                "}\n",
+                                "\n",
+                                "function filterKinesisSubscribers(subscribers) {\n",
+                                "    const initialValue = [];\n",
+                                "    return subscribers.reduce(\n",
+                                "        (accumulator, subscriber) => {\n",
+                                "            if (hasKinesisArn(subscriber)) {\n",
+                                "                accumulator.push(subscriber);\n",
+                                "            }\n",
+                                "            return accumulator;\n",
+                                "        },\n",
+                                "        initialValue\n",
+                                "    );\n",
+                                "}\n",
+                                "\n",
+                                "function resolveSubscriber(logGroupData) {\n",
+                                "    const subscribers = logGroupData.subscriptionFilters;\n",
+                                "    const kinesisSubscribers = filterKinesisSubscribers(subscribers);\n",
+                                "    var responseData = { destinationArn: '' };\n",
+                                "    if (kinesisSubscribers.length === 0 && subscribers.length >= 2) {\n",
+                                "        responseData = {\n",
+                                "            Error:\n",
+                                "                'Only kinesis subscribers are supported. '\n",
+                                "                + 'Cannot create a new subscription filter for this log group'\n",
+                                "                + ' because it already has the maximum allowed number of subscription filters.'\n",
+                                "        };\n",
+                                "    } else if (kinesisSubscribers.length > 0) {\n",
+                                "        responseData = kinesisSubscribers[0];\n",
+                                "    }\n",
+                                "    return responseData;\n",
+                                "}\n",
+                                "\n",
+                                "exports.handler = function (event, context) {\n",
                                 "    console.log('REQUEST RECEIVED:\\n', JSON.stringify(event));\n",
                                 "    if (event.RequestType !== 'Create') {\n",
                                 "        return response.send(event, context, response.SUCCESS);\n",
                                 "    }\n",
-                                "\n",
-                                "    var responseData = {destinationArn: ''},\n",
-                                "        cloudwatchlogs = new AWS.CloudWatchLogs({apiVersion: '2014-03-28'});\n",
-                                "\n",
-                                "   cloudwatchlogs.describeSubscriptionFilters({logGroupName: logGroup}, function(err, data) {\n",
-                                "   if (err) {\n",
-                                "       responseData = {Error: 'DescribeSubscriptionFilters call failed'};\n", 
-                                "       console.log(responseData.Error + ':\\n', err);\n",
-                                "       return response.send(event, context, response.FAILED, responseData);\n",
-                                "   }\n",
-                                "\n",
-                                "   if (data.subscriptionFilters.length) {\n",
-                                "       if (data.subscriptionFilters[0].destinationArn.split(':')[2] !== 'kinesis'){\n",
-                                "           responseData = {Error: 'Only kinesis subscribers are supported.'};\n", 
-                                "           return response(event, context, response.FAILED, responseData);\n",
-                                "       }\n",
-                                "       responseData = data.subscriptionFilters[0];\n",
-                                "   }\n",
-                                "   return response.send(event, context, response.SUCCESS, responseData);\n",
-                                "   });\n",
-                                "}"
+                                "    const awsRegion = event.ResourceProperties.Region;\n",
+                                "    const logGroup = event.ResourceProperties.LogGroup;\n",
+                                "    AWS.config.update({ region: awsRegion });\n",
+                                "    const cloudWatchLogs = new AWS.CloudWatchLogs({ apiVersion: '2014-03-28' });\n",
+                                "    cloudWatchLogs.describeSubscriptionFilters({ logGroupName: logGroup }, function (err, data) {\n",
+                                "        if (err) {\n",
+                                "            const responseData = { Error: 'DescribeSubscriptionFilters call failed' };\n",
+                                "            console.log(responseData.Error + ':\\n', err);\n",
+                                "            return response.send(event, context, response.FAILED, responseData);\n",
+                                "        }\n",
+                                "        const responseData = resolveSubscriber(data);\n",
+                                "        const responseStatus = responseData.Error ? response.FAILED : response.SUCCESS;\n",
+                                "        return response.send(event, context, responseStatus, responseData);\n",
+                                "    });\n",
+                                "}\n"
                             ]
                         ]
                     }
                 },
-                "Runtime": "nodejs10.x",
+                "Runtime": "nodejs12.x",
                 "Timeout": "180"
             },
             "DependsOn": [
@@ -276,24 +297,57 @@
         "CloudWatchLogGroupInfo": {
             "Type": "Custom::CloudWatchLogGroupInfo",
             "Properties": {
-                "ServiceToken": { "Fn::GetAtt" : ["GetCloudWatchLogGroupInfo", "Arn"] }
+                "ServiceToken": {
+                    "Fn::GetAtt": [
+                        "GetCloudWatchLogGroupInfo",
+                        "Arn"
+                    ]
+                },
+                "Region": {
+                    "Ref": "AWS::Region"
+                },
+                "LogGroup": {
+                    "Ref": "CloudWatchLogGroup"
+                }
             }
         },
         "StackCreateCloudWatchLogExport": {
             "Type": "AWS::CloudFormation::Stack",
             "Properties": {
                 "Parameters": {
-                    "CloudWatchLogGroup": {"Ref": "CloudWatchLogGroup"},
-                    "KinesisShards": {"Ref": "KinesisShards"},
-                    "LogFormat": {"Ref": "LogFormat"},
-                    "SubscriptionFilterPattern": {"Ref": "SubscriptionFilterPattern"},
-                    "S3BucketName": {"Ref": "S3BucketName"},
-                    "S3LogFolderName": {"Ref": "S3LogFolderName"},
-                    "LambdaS3BucketNamePrefix": {"Ref": "LambdaS3BucketNamePrefix"},
-                    "LambdaPackageName": {"Ref": "LambdaPackageName"},
-                    "AlertLogicAWSAccountId": {"Ref": "AlertLogicAWSAccountId"},
-                    "AlertLogicPublicApiKey": {"Ref": "AlertLogicPublicApiKey"},
-                    "AlertLogicAccountId": {"Ref": "AlertLogicAccountId"},
+                    "CloudWatchLogGroup": {
+                        "Ref": "CloudWatchLogGroup"
+                    },
+                    "KinesisShards": {
+                        "Ref": "KinesisShards"
+                    },
+                    "LogFormat": {
+                        "Ref": "LogFormat"
+                    },
+                    "SubscriptionFilterPattern": {
+                        "Ref": "SubscriptionFilterPattern"
+                    },
+                    "S3BucketName": {
+                        "Ref": "S3BucketName"
+                    },
+                    "S3LogFolderName": {
+                        "Ref": "S3LogFolderName"
+                    },
+                    "LambdaS3BucketNamePrefix": {
+                        "Ref": "LambdaS3BucketNamePrefix"
+                    },
+                    "LambdaPackageName": {
+                        "Ref": "LambdaPackageName"
+                    },
+                    "AlertLogicAWSAccountId": {
+                        "Ref": "AlertLogicAWSAccountId"
+                    },
+                    "AlertLogicPublicApiKey": {
+                        "Ref": "AlertLogicPublicApiKey"
+                    },
+                    "AlertLogicAccountId": {
+                        "Ref": "AlertLogicAccountId"
+                    },
                     "DestinationArn": {
                         "Fn::GetAtt": [
                             "CloudWatchLogGroupInfo",
