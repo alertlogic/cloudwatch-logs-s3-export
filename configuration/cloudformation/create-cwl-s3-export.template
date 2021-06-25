@@ -379,7 +379,7 @@
                         "Ref": "LambdaPackageName"
                     }
                 },
-                "Runtime": "nodejs10.x",
+                "Runtime": "nodejs12.x",
                 "Timeout": "300"
             },
             "DependsOn": [
@@ -598,7 +598,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs10.x",
+                "Runtime": "nodejs12.x",
                 "Timeout": "300"
             },
             "DependsOn": [
@@ -674,7 +674,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs10.x",
+                "Runtime": "nodejs12.x",
                 "Timeout": "60"
             },
             "DependsOn": [
