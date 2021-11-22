@@ -44,15 +44,15 @@ run ```npm run release``` to update the version
 ### Supported AWS Regions
   Region Name             | Region           | CloudFormation Template
  -------------------------| -----------------| -----------------
- US East (N. Virginia)    | us-east-1        | https://s3.amazonaws.com/alertlogic-public-repo.us-east-1/templates/cwl-s3-export.template
- US East (Ohio)           | us-east-2        | https://s3.amazonaws.com/alertlogic-public-repo.us-east-2/templates/cwl-s3-export.template
- US West (N. California)  | us-west-1        | https://s3.amazonaws.com/alertlogic-public-repo.us-west-1/templates/cwl-s3-export.template
- US West (Oregon)         | us-west-2        | https://s3.amazonaws.com/alertlogic-public-repo.us-west-2/templates/cwl-s3-export.template
- EU (Ireland)			  | eu-west-1        | https://s3.amazonaws.com/alertlogic-public-repo.eu-west-1/templates/cwl-s3-export.template
- EU (Frankfurt)           | eu-central-1     | https://s3.amazonaws.com/alertlogic-public-repo.eu-central-1/templates/cwl-s3-export.template
- Asia Pacific (Tokyo)     | ap-northeast-1   | https://s3.amazonaws.com/alertlogic-public-repo.ap-northeast-1/templates/cwl-s3-export.template
- Asia Pacific (Singapore) | ap-southeast-1   | https://s3.amazonaws.com/alertlogic-public-repo.ap-southeast-1/templates/cwl-s3-export.template
- Asia Pacific (Sydney)    | ap-southeast-2   | https://s3.amazonaws.com/alertlogic-public-repo.ap-southeast-2/templates/cwl-s3-export.template
+ US East (N. Virginia)    | us-east-1        | https://s3.us-east-1.amazonaws.com/alertlogic-public-repo.us-east-1/templates/cwl-s3-export.template
+ US East (Ohio)           | us-east-2        | https://s3.us-east-2.amazonaws.com/alertlogic-public-repo.us-east-2/templates/cwl-s3-export.template
+ US West (N. California)  | us-west-1        | https://s3.us-west-1.amazonaws.com/alertlogic-public-repo.us-west-1/templates/cwl-s3-export.template
+ US West (Oregon)         | us-west-2        | https://s3.us-west-2.amazonaws.com/alertlogic-public-repo.us-west-2/templates/cwl-s3-export.template
+ EU (Ireland)			  | eu-west-1        | https://s3.eu-west-1.amazonaws.com/alertlogic-public-repo.eu-west-1/templates/cwl-s3-export.template
+ EU (Frankfurt)           | eu-central-1     | https://s3.eu-central-1.amazonaws.com/alertlogic-public-repo.eu-central-1/templates/cwl-s3-export.template
+ Asia Pacific (Tokyo)     | ap-northeast-1   | https://s3.ap-northeast-1.amazonaws.com/alertlogic-public-repo.ap-northeast-1/templates/cwl-s3-export.template
+ Asia Pacific (Singapore) | ap-southeast-1   | https://s3.ap-southeast-1.amazonaws.com/alertlogic-public-repo.ap-southeast-1/templates/cwl-s3-export.template
+ Asia Pacific (Sydney)    | ap-southeast-2   | https://s3.ap-southeast-2.amazonaws.com/alertlogic-public-repo.ap-southeast-2/templates/cwl-s3-export.template
 
  
 
