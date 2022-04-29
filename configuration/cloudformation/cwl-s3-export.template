@@ -54,7 +54,7 @@
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.11.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.12.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
@@ -287,7 +287,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs12.x",
+                "Runtime": "nodejs14.x",
                 "Timeout": "180"
             },
             "DependsOn": [
