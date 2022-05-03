@@ -1,6 +1,7 @@
-##Cloud Watch Logs Export To S3 via Kinesis and Lambda Project - Getting started  
+## Cloud Watch Logs Export To S3 via Kinesis and Lambda Project - Getting started  
 
-##Mac OS X  Installation Requirements
+## Mac OS X  Installation Requirements
+
 *~ You must have installed XCode and accepted the licensing agreemment before continuing with this document ~*  
 
 Install [Homebrew](http://brew.sh/)  
@@ -11,12 +12,12 @@ Use [Homebrew](http://brew.sh/) to install [Node](http://nodejs.org/)
 ```$ brew install node```  
 *~ Javascript runtime required to run Lambda cli tools ~*  
 
-###Linux Installation Requirements
+### Linux Installation Requirements
 
 Install [Node](http://nodejs.org/) latest Distribution from [Distributions](https://nodejs.org/dist/v4.1.1/)  
 *~ Javascript runtime required to run Lambda cli tools ~*  
 
-###Building the project
+### Building the project
 
 Clone this repository to somewhere under your home directory.  (we recommend ~/workspace)  
 ```$ git clone git@github.com:alertlogic/cloudwatch-logs-s3-export.git cloudwatch-logs-s3-export```  
@@ -25,7 +26,7 @@ Clone this repository to somewhere under your home directory.  (we recommend ~/w
 Execute the Lambda development environment installation script.  
 ```$ build/install.sh```
 
-##Building for AWS
+## Building for AWS
 Skip to the [Setup](#setup) section if you want to use pre-built Lambda package.
 #### Build process
 Run ```npm run build``` to create a versioned, distributable zip artifact.  
@@ -42,19 +43,25 @@ run ```npm run release``` to update the version
 ## Setup
 
 ### Supported AWS Regions
-  Region Name             | Region           | CloudFormation Template
- -------------------------| -----------------| -----------------
- US East (N. Virginia)    | us-east-1        | https://s3.us-east-1.amazonaws.com/alertlogic-public-repo.us-east-1/templates/cwl-s3-export.template
- US East (Ohio)           | us-east-2        | https://s3.us-east-2.amazonaws.com/alertlogic-public-repo.us-east-2/templates/cwl-s3-export.template
- US West (N. California)  | us-west-1        | https://s3.us-west-1.amazonaws.com/alertlogic-public-repo.us-west-1/templates/cwl-s3-export.template
- US West (Oregon)         | us-west-2        | https://s3.us-west-2.amazonaws.com/alertlogic-public-repo.us-west-2/templates/cwl-s3-export.template
- EU (Ireland)			  | eu-west-1        | https://s3.eu-west-1.amazonaws.com/alertlogic-public-repo.eu-west-1/templates/cwl-s3-export.template
- EU (Frankfurt)           | eu-central-1     | https://s3.eu-central-1.amazonaws.com/alertlogic-public-repo.eu-central-1/templates/cwl-s3-export.template
- Asia Pacific (Tokyo)     | ap-northeast-1   | https://s3.ap-northeast-1.amazonaws.com/alertlogic-public-repo.ap-northeast-1/templates/cwl-s3-export.template
- Asia Pacific (Singapore) | ap-southeast-1   | https://s3.ap-southeast-1.amazonaws.com/alertlogic-public-repo.ap-southeast-1/templates/cwl-s3-export.template
- Asia Pacific (Sydney)    | ap-southeast-2   | https://s3.ap-southeast-2.amazonaws.com/alertlogic-public-repo.ap-southeast-2/templates/cwl-s3-export.template
+  Region Name             | Region         | CloudFormation Template
+ -------------------------|----------------| -----------------
+ US East (N. Virginia)    | us-east-1      | https://s3.us-east-1.amazonaws.com/alertlogic-public-repo.us-east-1/templates/cwl-s3-export.template
+ US East (Ohio)           | us-east-2      | https://s3.us-east-2.amazonaws.com/alertlogic-public-repo.us-east-2/templates/cwl-s3-export.template
+ US West (N. California)  | us-west-1      | https://s3.us-west-1.amazonaws.com/alertlogic-public-repo.us-west-1/templates/cwl-s3-export.template
+ US West (Oregon)         | us-west-2      | https://s3.us-west-2.amazonaws.com/alertlogic-public-repo.us-west-2/templates/cwl-s3-export.template
+ EU (Ireland)             | eu-west-1      | https://s3.eu-west-1.amazonaws.com/alertlogic-public-repo.eu-west-1/templates/cwl-s3-export.template
+ EU (London)              | eu-west-2      | https://s3.eu-west-2.amazonaws.com/alertlogic-public-repo.eu-west-2/templates/cwl-s3-export.template
+ EU (Paris)               | eu-west-3      | https://s3.eu-west-3.amazonaws.com/alertlogic-public-repo.eu-west-3/templates/cwl-s3-export.template
+ EU (Frankfurt)           | eu-central-1   | https://s3.eu-central-1.amazonaws.com/alertlogic-public-repo.eu-central-1/templates/cwl-s3-export.template
+ Asia Pacific (Tokyo)     | ap-northeast-1 | https://s3.ap-northeast-1.amazonaws.com/alertlogic-public-repo.ap-northeast-1/templates/cwl-s3-export.template
+ Asia Pacific (Seoul)     | ap-northeast-2 | https://s3.ap-northeast-2.amazonaws.com/alertlogic-public-repo.ap-northeast-2/templates/cwl-s3-export.template
+ Asia Pacific (Singapore) | ap-southeast-1 | https://s3.ap-southeast-1.amazonaws.com/alertlogic-public-repo.ap-southeast-1/templates/cwl-s3-export.template
+ Asia Pacific (Sydney)    | ap-southeast-2 | https://s3.ap-southeast-2.amazonaws.com/alertlogic-public-repo.ap-southeast-2/templates/cwl-s3-export.template
+ Asia Pacific (Mumbai)    | ap-south-1     | https://s3.ap-south-1.amazonaws.com/alertlogic-public-repo.ap-south-1/templates/cwl-s3-export.template
+ Canada (Central)         | ca-central-1   | https://s3.ca-central-1.amazonaws.com/alertlogic-public-repo.ca-central-1/templates/cwl-s3-export.template
+ South America (São Paulo)| sa-east-1      | https://s3.sa-east-1.amazonaws.com/alertlogic-public-repo.sa-east-1/templates/cwl-s3-export.template
 
- 
+
 
 The **Cloud Watch Logs Export To S3** utility is deployed via a CloudFormation Service using the template references in the Supported AWS Regions table. When setting up a new stack in AWS CloudFormation service, select 'Specify an Amazon S3 template URL' option and specify corresponding region's template. 
 

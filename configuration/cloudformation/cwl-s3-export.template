@@ -10,8 +10,7 @@
         "CloudWatchLogGroup": {
             "Description": "The name of the CloudWatch Logs Group to export to S3 bucket.",
             "Type": "String",
-            "ConstraintDescription": "Must be an existing CloudWatch Log Group.",
-            "Default": ""
+            "ConstraintDescription": "Must be an existing CloudWatch Log Group."
         },
         "KinesisShards": {
             "Description": "Number of shards to create for the Kinesis subscription stream.",
@@ -48,13 +47,13 @@
         "LambdaS3BucketNamePrefix": {
             "Description": "The prefix of the S3 bucket which contains Lambda package to be used for archiving CloudWath Logs to S3. Note that the name of the bucket must contain a region name suffix. The following is the valid backet name syntax: <bucket_name_prefix>.us-east-1.",
             "Type": "String",
-            "Default": "alertlogic-public-repo",
+            "Default": "kktest",
             "MinLength": "5"
         },
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.11.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.12.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
@@ -287,7 +286,7 @@
                         ]
                     }
                 },
-                "Runtime": "nodejs12.x",
+                "Runtime": "nodejs14.x",
                 "Timeout": "180"
             },
             "DependsOn": [
