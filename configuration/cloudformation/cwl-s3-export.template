@@ -47,7 +47,7 @@
         "LambdaS3BucketNamePrefix": {
             "Description": "The prefix of the S3 bucket which contains Lambda package to be used for archiving CloudWath Logs to S3. Note that the name of the bucket must contain a region name suffix. The following is the valid backet name syntax: <bucket_name_prefix>.us-east-1.",
             "Type": "String",
-            "Default": "kktest",
+            "Default": "alertlogic-public-repo",
             "MinLength": "5"
         },
         "LambdaPackageName": {
