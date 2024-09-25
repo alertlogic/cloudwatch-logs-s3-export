@@ -8,58 +8,58 @@ const gzip = promisify(zlib.gzip);
 
 exports.handler = async function(args, context) {
     "use strict";
-    const callback = function(err, result) {
-        if (err) {
-            console.log("'" + args.operation + "' failed. Error: " + JSON.stringify(err));
-            return context.fail(JSON.stringify(err));
+    try {
+        let result;
+
+        switch (args.operation) {
+            case 'processLogs':
+                result = await handleProcessLogs(args.data);
+                break;
+            case 'createSource':
+                result = await setup.createSource(args.data);
+                break;
+            case 'deleteSource':
+                result = await setup.deleteSource(args.data);
+                break;
+            default:
+                return context.fail("Unsupported operation: '" + args.operation + "'.");
         }
+
         console.log("Returning: " + JSON.stringify(result));
         return context.succeed(result);
-    };
-
-    switch (args.operation) {
-        case 'processLogs':
-            return handleProcessLogs(args.data, callback);
-        case 'createSource':
-            return setup.createSource(args.data, callback);
-        case 'deleteSource':
-            return setup.deleteSource(args.data, callback);
-        default:
-            return context.fail("Unsupported operation: '" + args.operation + "'.");
+    } catch (err) {
+        console.log("'" + args.operation + "' failed. Error: " + JSON.stringify(err));
+        return context.fail(JSON.stringify(err));
     }
 };
 
-async function handleProcessLogs(args, resultCallback) {
+async function handleProcessLogs(args) {
     "use strict";
     const s3Client = new S3Client({ region: args.awsRegion });
     try {
         const data = await s3Client.send(new GetBucketLocationCommand({ Bucket: args.s3BucketName }));
         const endpoint = getS3Endpoint(data.LocationConstraint || args.awsRegion);
         s3Client.config.endpoint = `https://${endpoint}`;
-        await processLogs(args, s3Client, resultCallback);
+        return await processLogs(args, s3Client);
     } catch (err) {
         console.log("handleProcessLogs Err", JSON.stringify(err));
-        resultCallback(err);
+        return err;
     }
 }
 
-async function processLogs(args, s3Client, resultCallback) {
+async function processLogs(args, s3Client) {
     "use strict";
-    console.log("Processing '" + args.records.length + "' records.",JSON.stringify(args.records));
-
-    const getMessagePromises = args.records.map(record => getMessages(args.logFormat, record));
+    console.log("Processing '" + args.records.length + "' records.", JSON.stringify(args.records));
 
     try {
-        const results = await Promise.all(getMessagePromises);
-        let data = "";
-        for (let i = 0; i < results.length; i++) {
-            data += results[i];
-        }
+        const results = await Promise.all(args.records.map(record => getMessages(args.logFormat, record)));
+        const data = results.join("");
+
         const objectName = getObjectName(args.awsRegion, args.s3LogFilePrefix, args.logFormat);
-        await uploadData(data, args.awsRegion, args.s3BucketName, objectName, s3Client);
-        resultCallback(null);
+        const result = await uploadData(data, args.awsRegion, args.s3BucketName, objectName, s3Client);
+        return result;
     } catch (err) {
-        resultCallback(err);
+        return err;
     }
 }
 
@@ -67,10 +67,10 @@ async function getMessages(logFormat, record) {
     "use strict";
     try {
         const result = await gunzip(Buffer.from(record.kinesis.data, 'base64'));
-
         const data = JSON.parse(result.toString('ascii'));
+
         if (!data.hasOwnProperty("messageType") || data.messageType !== "DATA_MESSAGE") {
-            console.log("Invalid message received. Skip processing. messageType: " + result.messageType);
+            console.log("Invalid message received. Skip processing. messageType: " + data.messageType);
             return "";
         }
 
@@ -79,24 +79,24 @@ async function getMessages(logFormat, record) {
 
         switch(logFormat) {
             case "AWS VPC Flow Logs":
-                logEvents.forEach(function (log) {
+                logEvents.forEach(log => {
                     const timestamp = log.message.split(' ')[10];
                     logs += "VPC Flow Log Record: " + timestamp + " " + log.message + "\n";
                 });
                 break;
             case "AWS Lambda":
-                logEvents.forEach(function (log) {
+                logEvents.forEach(log => {
                     const date = new Date(log.timestamp);
                     logs += "Lambda Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
                 });
                 break;
             case "AWS IoT":
-                logEvents.forEach(function (log) {
+                logEvents.forEach(log => {
                     logs += "IoT Log Record: " + log.message + "\n";
                 });
                 break;
             default:
-                logEvents.forEach(function (log) {
+                logEvents.forEach(log => {
                     const date = new Date(log.timestamp);
                     logs += "Custom CloudWatch Log Record: [" + date.toISOString() + "] - " + log.message + "\n\n";
                 });
@@ -130,10 +130,11 @@ async function uploadData(data, awsRegion, s3BucketName, objectName, s3Client) {
 
         await s3Client.send(new PutObjectCommand(params));
         console.log("Successfully persisted '" + getObjectUrl(objectName, s3BucketName) + "'.");
+        return null;
     } catch (err) {
         console.log("Failed to persist '" + objectName + "' object to '" + s3BucketName + "' bucket. " +
                     "Error: " + JSON.stringify(err));
-        throw err;
+        return err;
     }
 }
 

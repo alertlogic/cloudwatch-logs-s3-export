@@ -1,0 +1,31 @@
+{
+    "operation": "deleteSource",
+    "data": {
+        "s3": {
+            "bucket": "im-s3-auditlogs/imcwlexporttos38-StackCreateCloudWatchLogExport-F4BICI4J4823",
+            "file_pattern": ".*",
+            "max_collection_interval": "300",
+            "time_zone": "GMT",
+            "enabled": "true"
+        },
+        "aims_access_key_id": "xxxxxxxx",
+        "aims_secret_key": "xxxxxxxxx",
+        "credentials": {
+          "externalId": "imcwlexporttos38-StackCreateCloudWatchLogExport-F4BICI4J4823Q:352283894009:us-east-1",
+          "type": "iam_role",
+          "arn": "arn:aws:iam::352283894009:role/imcwlexporttos38-StackCr-AlertLogicS3AccessRole-IjnFpUofkd4O"
+        },
+        "customerId": "xxxxxxx",
+        "name": "imcwetos3exporttest2",
+        "type": "s3",
+        "policy": {
+            "default": "false",
+            "multiline": {
+                "is_multiline": "false"
+            },
+            "timestamp": {
+                "format": ""
+            }
+        }
+    }
+}

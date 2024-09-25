@@ -1,26 +1,27 @@
-var defenderApi = require('./utilities/defender_api_client.js'),
+var defenderApi = require('./utilities/ci_yard_api_client.js'),
     { S3Client,
         GetBucketLocationCommand,
         GetBucketLifecycleConfigurationCommand,
         PutBucketLifecycleConfigurationCommand,
-        DeleteBucketLifecycleConfigurationCommand
+        DeleteBucketLifecycleCommand
     } = require('@aws-sdk/client-s3');
 
-exports.createSource = async function (args, callback) {
+exports.createSource = async function (args) {
     "use strict";
     var sourceName = args.name,
         sourceType = args.type,
         params = {
             customerId: args.customerId,
-            auth: args.auth,
+            aims_access_key_id: args.aims_access_key_id,
+            aims_secret_key: args.aims_secret_key,
             args: [
-                { name: 'type', value: sourceType },
+                { name: 'source.config.collection_type', value: sourceType },
                 { name: 'name', value: sourceName }
             ]
         };
 
-    if (args.customerId === "" || args.auth === "") {
-        return callback(null, { id: "" });
+    if (args.customerId === "" || args.aims_access_key_id === "" || args.aims_secret_key === "") {
+        return { id: "" };
     }
 
     try {
@@ -28,80 +29,43 @@ exports.createSource = async function (args, callback) {
             name: args.name + "-rule",
             bucket: args.s3.bucket
         };
-        await new Promise((resolve, reject) => {
-            updateBucketLifeCycle(lifeCycleParams, "add", (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        await updateBucketLifeCycle(lifeCycleParams, "add");
 
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.getSource(params, (err, result) => {
-                if (err) {
-                    console.log("Failed to get S3 sources. Error: '" + JSON.stringify(err) + "'");
-                    reject(err);
-                } else {
-                    resolve(result);
-                }
-            });
-        });
+        const result = await defenderApi.getSource(params);
+        const r = JSON.parse(result);
 
-        var r = JSON.parse(result);
         if (r.sources.length) {
             console.log("Source '" + sourceName + "' already exists.");
-            console.log("Source: " + JSON.stringify(r.sources[0], null, 3));
-            if (r.sources[0].hasOwnProperty(sourceType)) {
-                return callback(null, { id: r.sources[0][sourceType].id });
+            console.log("Source: " + JSON.stringify(r.sources[0], null, 2));
+            if (r.sources[0]['source']['config']['collection_type'] === sourceType) {
+                return { id: r.sources[0]['source'].id };
             } else {
-                await new Promise((resolve, reject) => {
-                    createSourceImpl(args, (err, result) => {
-                        if (err) {
-                            console.log("Failed to create source. Error: '" + JSON.stringify(err) + "'");
-                            reject(err);
-                        } else {
-                            console.log("Successfully created source. Result: '" + JSON.stringify(result) + "'");
-                            resolve(result);
-                        }
-                    });
-                });
+                return await createSourceImpl(args);
             }
         } else {
-            await new Promise((resolve, reject) => {
-                createSourceImpl(args, (err, result) => {
-                    if (err) {
-                        console.log("Failed to create source. Error: '" + JSON.stringify(err) + "'");
-                        reject(err);
-                    } else {
-                        console.log("Successfully created source. Result: '" + JSON.stringify(result) + "'");
-                        resolve(result);
-                    }
-                });
-            });
+            return await createSourceImpl(args);
         }
     } catch (err) {
-        return callback(err);
+        console.log("Failed to create source. Error: '" + JSON.stringify(err) + "'");
+        return err;
     }
-
-    return callback(null, { successful: true });
 };
-exports.deleteSource = async function (args, callback) {
+exports.deleteSource = async function (args) {
     "use strict";
     var sourceName = args.name,
         sourceType = args.type,
         params = {
             customerId: args.customerId,
-            auth: args.auth,
+            aims_access_key_id: args.aims_access_key_id,
+            aims_secret_key: args.aims_secret_key,
             args: [
-                { name: 'type', value: sourceType },
+                { name: 'source.config.collection_type', value: sourceType },
                 { name: 'name', value: sourceName }
             ]
         };
 
-    if (args.customerId === "" || args.auth === "") {
-        return callback(null, { id: "" });
+    if (args.customerId === "" || args.aims_access_key_id === "" || args.aims_secret_key === "") {
+        return { id: "" };
     }
 
     try {
@@ -109,133 +73,67 @@ exports.deleteSource = async function (args, callback) {
             name: args.name + "-rule",
             bucket: args.s3.bucket
         };
-        await new Promise((resolve, reject) => {
-            updateBucketLifeCycle(lifeCycleParams, "remove", err => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        await updateBucketLifeCycle(lifeCycleParams, "remove");
 
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.getSource(params, (err, result) => {
-                if (err) {
-                    console.log("Failed to get S3 sources. Error: '" + JSON.stringify(err) + "'");
-                    reject(err);
-                } else {
-                    resolve(result);
-                }
-            });
-        });
+        const result = await defenderApi.getSource(params);
 
         var r = JSON.parse(result);
         if (!r.sources.length) {
-            return callback(null, { id: "" });
+            return { id: "" };
         }
 
         for (var i = 0; i < r.sources.length; i++) {
-            if (r.sources[0].hasOwnProperty(sourceType)) {
-                var source = r.sources[0][sourceType];
+            if (r.sources[0]['source']['config']['collection_type'] === sourceType) {
+                var source = r.sources[0]['source'];
                 args['sourceId'] = source.id;
-                args['credentialId'] = source.credential_id;
-                args['policyId'] = source.policy_id;
-                return deleteSourceImpl(args, callback);
+                args['credentialId'] = source.config.s3.credential.id;
+                args['policyId'] = source.config.policy.id;
+                return await deleteSourceImpl(args);
             }
         }
 
-        return callback(null, { id: "" });
+        return { id: "" };
     } catch (err) {
-        return callback(err);
+        console.log("Error in deleteSource operation. Error: " + JSON.stringify(err));
+        return err;
     }
 };
 
-async function createSourceImpl(args, resultCallback) {
+async function createSourceImpl(args) {
     "use strict";
     console.log("Creating '" + args.name + "' source of '" + args.type + "' type.");
     try {
-        var credentialId = await new Promise((resolve, reject) => {
-            getCredentials(args, true, (err, id) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        var policyId = await new Promise((resolve, reject) => {
-            getPolicy(args, true, (err, id) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        var result = await new Promise((resolve, reject) => {
-            doCreateSource(args, credentialId, policyId, (err, res) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        resultCallback(null, result);
+        const credentialId = await getCredentials(args, true);
+        const policyId = await getPolicy(args, true);
+        const result = await doCreateSource(args, credentialId, policyId);
+        console.log("Successfully created source. Result: '" + JSON.stringify(result) + "'");
+        return result;
     } catch (err) {
-        resultCallback(err, null);
+        console.log("Error creating source: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function deleteSourceImpl(args, resultCallback) {
+async function deleteSourceImpl(args) {
     "use strict";
     console.log("Deleting '" + args.sourceId + "' source.");
     try {
-        await new Promise((resolve, reject) => {
-            doDeleteSource(args, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        await new Promise((resolve, reject) => {
-            deletePolicy(args, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        await new Promise((resolve, reject) => {
-            deleteCredential(args, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        resultCallback(null, { id: args.sourceId });
+        await doDeleteSource(args);
+        await deletePolicy(args);
+        await deleteCredential(args);
+        return { id: args.sourceId };
     } catch (err) {
-        resultCallback(err, null);
+        console.log("Error deleting source: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function getCredentials(args, createFlag, callback) {
+async function getCredentials(args, createFlag) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         args: [
             { name: 'type', value: args.credentials.type },
             { name: 'name', value: args.name }
@@ -243,88 +141,66 @@ async function getCredentials(args, createFlag, callback) {
     };
 
     try {
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.getCredentials(params, (err, result) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
+        const result = await defenderApi.getCredentials(params);
         var r = JSON.parse(result);
         if (r.credentials.length) {
-            var id = r.credentials[0][args.credentials.type].id;
+            var id = r.credentials[0]['credential'].id;
             console.log("CredentialId: " + id);
-            return callback(null, id);
+            return id;
         } else if (!createFlag) {
-            return callback({ message: "Credentials object doesn't exist", code: 404 });
+            return { message: "Credentials object doesn't exist", code: 404 };
         }
-        return createCredentials(args, callback);
+        return await createCredentials(args);
     } catch (err) {
-        return callback(err);
+        console.log("Error getting credentials: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function createCredentials(args, callback) {
+async function createCredentials(args) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         name: args.name,
         credentials: args.credentials
     };
 
     try {
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.createCredentials(params, (err, result) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        var id = JSON.parse(result)[params.credentials.type].id;
+        const result = await defenderApi.createCredentials(params);
+        var id = JSON.parse(result)['credential'].id;
         console.log("Created new credentials object: " + id);
-        return callback(null, id);
+        return id;
     } catch (err) {
-        return callback(err);
+        console.log("Error creating credentials: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function deleteCredential(args, callback) {
+async function deleteCredential(args) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         id: args.credentialId
     };
 
     try {
-        await new Promise((resolve, reject) => {
-            defenderApi.deleteCredential(params, (err, result) => {
-                if (err) {
-                    console.log("Failed to delete credential '" + args.credentialId + "'. Error: " + JSON.stringify(err));
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        return callback(null);
+        await defenderApi.deleteCredential(params);
     } catch (err) {
-        return callback(err);
+        console.log("Failed to delete credential '" + args.credentialId + "'. Error: " + JSON.stringify(err));
+        return err;
     }
 }
-async function getPolicy(args, createFlag, callback) {
+
+async function getPolicy(args, createFlag) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         args: [
             { name: 'type', value: args.type },
             { name: 'name', value: args.name }
@@ -332,31 +208,23 @@ async function getPolicy(args, createFlag, callback) {
     };
 
     try {
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.getPolicy(params, (err, result) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
+        const result = await defenderApi.getPolicy(params);
         var r = JSON.parse(result);
         if (r.policies.length) {
-            var id = r.policies[0][args.type].id;
+            var id = r.policies[0]['policy'].id;
             console.log("Policy Id: " + id);
-            return callback(null, id);
+            return id;
         } else if (!createFlag) {
-            return callback({ message: "Policy object doesn't exist", code: 404 });
+            return { message: "Policy object doesn't exist", code: 404 };
         }
-        return createPolicy(args, callback);
+        return await createPolicy(args);
     } catch (err) {
-        return callback(err);
+        console.log("Error getting policy: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function createPolicy(args, callback) {
+async function createPolicy(args) {
     "use strict";
     var params = {};
 
@@ -364,19 +232,21 @@ async function createPolicy(args, callback) {
         case "AWS VPC Flow Logs":
             params = {
                 customerId: args.customerId,
-                auth: args.auth,
+                aims_access_key_id: args.aims_access_key_id,
+                aims_secret_key: args.aims_secret_key,
                 name: args.name,
                 type: args.type,
+                template_id: "BFE6243E-E57C-4ADE-B444-C5999E8FE3A7",
                 policy: {
-                    default: "false",
-                    template_id: "BFE6243E-E57C-4ADE-B444-C5999E8FE3A7"
+                    default: "false"
                 }
             };
             break;
         case "AWS IoT":
             params = {
                 customerId: args.customerId,
-                auth: args.auth,
+                aims_access_key_id: args.aims_access_key_id,
+                aims_secret_key: args.aims_secret_key,
                 name: args.name,
                 type: args.type,
                 policy: {
@@ -393,7 +263,8 @@ async function createPolicy(args, callback) {
         default:
             params = {
                 customerId: args.customerId,
-                auth: args.auth,
+                aims_access_key_id: args.aims_access_key_id,
+                aims_secret_key: args.aims_secret_key,
                 name: args.name,
                 type: args.type,
                 policy: args.policy
@@ -402,109 +273,93 @@ async function createPolicy(args, callback) {
 
     console.log("Creating policy document: %s", JSON.stringify(params));
     try {
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.createPolicy(params, (err, result) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        var id = JSON.parse(result)[params.type].id;
+        const result = await defenderApi.createPolicy(params);
+        var id = JSON.parse(result)['policy'].id;
         console.log("Created new policy object: " + id);
-        return callback(null, id);
+        return id;
     } catch (err) {
-        return callback(err);
+        console.log("Error creating policy: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function deletePolicy(args, callback) {
+async function deletePolicy(args) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         id: args.policyId
     };
 
     try {
-        await new Promise((resolve, reject) => {
-            defenderApi.deletePolicy(params, (err, result) => {
-                if (err) {
-                    console.log("Failed to delete policy '" + args.policyId + "'. Error: " + JSON.stringify(err));
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        return callback(null);
+        await defenderApi.deletePolicy(params);
     } catch (err) {
-        return callback(err);
+        console.log("Failed to delete policy '" + args.policyId + "'. Error: " + JSON.stringify(err));
+        return err;
     }
 }
 
-async function doCreateSource(args, credentialId, policyId, callback) {
+async function doCreateSource(args, credentialId, policyId) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         name: args.name,
-        credentialId: credentialId,
-        policyId: policyId,
         type: args.type,
-        source: args[args.type]
+        source: {
+            config: {
+                time_zone: args[args.type]['time_zone'],
+                collection_method: "api",
+                collection_type: args.type,
+                [args.type]: {
+                    bucket: args[args.type]['bucket'],
+                    max_collection_interval: args[args.type]['max_collection_interval'] ? Number(args[args.type]['max_collection_interval']) : 300,
+                    file_pattern: args[args.type]['file_pattern'],
+                    credential: {
+                        id: credentialId
+                    }
+                },
+                policy: {
+                    id: policyId
+                }
+            },
+            enabled: args[args.type]['enabled'],
+            name: args.name,
+            product_type: "lm",
+            type: "api"
+        }
     };
     console.log("Creating source: %s", JSON.stringify(params));
     try {
-        const result = await new Promise((resolve, reject) => {
-            defenderApi.createSource(params, (err, result) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        var newSource = JSON.parse(result)[params.type];
+        const result = await defenderApi.createSource(params);
+        var newSource = JSON.parse(result).source;
         console.log("Created source object. Id: '" + newSource.id + "'");
-        return callback(null, { id: newSource.id });
+        return { id: newSource.id };
     } catch (err) {
-        return callback(err);
+        console.log("Error creating source: " + JSON.stringify(err));
+        return err;
     }
 }
 
-
-async function doDeleteSource(args, callback) {
+async function doDeleteSource(args) {
     "use strict";
     var params = {
         customerId: args.customerId,
-        auth: args.auth,
+        aims_access_key_id: args.aims_access_key_id,
+        aims_secret_key: args.aims_secret_key,
         id: args.sourceId
     };
 
     try {
-        await new Promise((resolve, reject) => {
-            defenderApi.deleteSource(params, (err, result) => {
-                if (err) {
-                    console.log("Failed to delete source '" + args.sourceId + "'. Error: " + JSON.stringify(err));
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        return callback(null);
+        await defenderApi.deleteSource(params);
     } catch (err) {
-        return callback(err);
+        console.log("Failed to delete source '" + args.sourceId + "'. Error: " + JSON.stringify(err));
+        return err;
     }
 }
-
-async function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
+async function updateBucketLifeCycle(lifeCycleParams, operation) {
     "use strict";
     console.log("updateBucketLifeCycle called... params: '%s', operation: '%s'", JSON.stringify(lifeCycleParams), operation);
     var index = lifeCycleParams.bucket.indexOf('/'),
@@ -516,16 +371,20 @@ async function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
         await setupS3endpoint();
         const rules = await getS3Lifecycle();
         await setupLifecycle(rules);
-
-        callback(null, `Lifecycle ${operation} operation successful`);
     } catch (err) {
-        callback(err);
+        return err;
     }
 
     async function setupS3endpoint() {
-        const data = await s3.send(new GetBucketLocationCommand({ "Bucket": bucketName }));
-        s3.config.endpoint = `https://${getS3Endpoint(data.LocationConstraint)}`;
-        console.log("Using '" + s3.config.endpoint + "' endpoint");
+        try {
+            const data = await s3.send(new GetBucketLocationCommand({ "Bucket": bucketName }));
+            s3.config.endpoint = `https://${getS3Endpoint(data.LocationConstraint)}`;
+            console.log("Using '" + s3.config.endpoint + "' endpoint");
+        } catch (err) {
+            console.log("Failed to get '" + bucketName + "' bucket location. " +
+                "Error: " + JSON.stringify(err));
+            return err;
+        }
     }
 
     async function getS3Lifecycle() {
@@ -566,7 +425,7 @@ async function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
             }
             console.log("Failed to get '" + bucketName + "' bucket lifecycle. " +
                 "Error: " + JSON.stringify(err));
-            throw err;
+            return err;
         }
     }
 
@@ -576,12 +435,12 @@ async function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
                 return;
             }
             try {
-                await s3.send(new DeleteBucketLifecycleConfigurationCommand({ "Bucket": bucketName }));
+                await s3.send(new DeleteBucketLifecycleCommand({ "Bucket": bucketName }));
                 console.log("Successfully deleted lifecycle configuration on '" + bucketName + "' bucket.");
             } catch (err) {
                 console.log("Failed to delete lifecycle configuration on '" + bucketName + "' bucket. " +
                     "Error: " + JSON.stringify(err));
-                throw err;
+                return err;
             }
         } else {
             var params = {
@@ -594,7 +453,7 @@ async function updateBucketLifeCycle(lifeCycleParams, operation, callback) {
             } catch (err) {
                 console.log("Operation '" + operation + "'. Failed to set '" + bucketName + "' bucket lifecycle. " +
                     "Error: " + JSON.stringify(err));
-                throw err;
+                return err;
             }
         }
     }

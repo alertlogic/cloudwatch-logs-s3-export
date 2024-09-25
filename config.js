@@ -15,7 +15,8 @@ var config = {
             "start": 67108867,
             "end": 134217727
         }
-    }
+    },
+    "ci_api_url": `${process.env.al_api}`
 };
 
 module.exports = config;

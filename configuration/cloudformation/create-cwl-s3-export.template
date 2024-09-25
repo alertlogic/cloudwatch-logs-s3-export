@@ -42,16 +42,30 @@
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.13.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.14.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
             "Description": "Alert Logic's AWS Account ID used for collecting data. A third-party role will be created to give read-only access to the 'S3BucketName'. Don't change this value",
             "Type": "String"
         },
-        "AlertLogicPublicApiKey": {
-            "Description": "Public Api key issued to you by Alert Logic.",
+        "AccessKeyId": {
+            "Description": "Alertlogic Access Key Id obtained from AIMS",
             "Type": "String"
+        },
+        "SecretKey": {
+            "Description": "Alertlogic Secret Key returned from AIMS for the Access Key Id",
+            "Type": "String",
+            "NoEcho": true
+        },
+        "AlApiEndpoint": {
+            "Description": "Alert Logic API endpoint",
+            "Type": "String",
+            "Default": "api.global-services.global.alertlogic.com",
+            "AllowedValues": [
+                "api.global-services.global.alertlogic.com",
+                "api.global-integration.product.dev.alertlogic.com"
+            ]
         },
         "AlertLogicAccountId": {
             "Description": "Alert Logic's Account ID. Leave this field empty if you want send data to your account. Use child Account ID if you want to send to a child account.",
@@ -380,7 +394,20 @@
                     }
                 },
                 "Runtime": "nodejs20.x",
-                "Timeout": "300"
+                "Timeout": "300",
+                "Environment": {
+                    "Variables": {
+                        "aims_access_key_id": {
+                            "Ref": "AccessKeyId"
+                        },
+                        "aims_secret_key": {
+                            "Ref": "SecretKey"
+                        },
+                        "al_api": {
+                            "Ref": "AlApiEndpoint"
+                        }
+                    }
+                }
             },
             "DependsOn": [
                 "LambdaS3ExportWorkerPolicy"
@@ -694,16 +721,11 @@
                     "customerId": {
                         "Ref": "AlertLogicAccountId"
                     },
-                    "auth": {
-                        "Fn::Join": [
-                            "",
-                            [
-                                {
-                                    "Ref": "AlertLogicPublicApiKey"
-                                },
-                                ":"
-                            ]
-                        ]
+                    "aims_access_key_id": {
+                        "Ref": "AccessKeyId"
+                    },
+                    "aims_secret_key": {
+                        "Ref": "SecretKey"
                     },
                     "name": {
                         "Fn::Join": [

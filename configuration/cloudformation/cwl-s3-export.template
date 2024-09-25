@@ -53,7 +53,7 @@
         "LambdaPackageName": {
             "Description": "Object name containing Lambda package to be used for archiving CloudWath Logs to S3.",
             "Type": "String",
-            "Default": "cloudwatch-logs-s3-export-0.0.13.zip",
+            "Default": "cloudwatch-logs-s3-export-0.0.14.zip",
             "MinLength": "5"
         },
         "AlertLogicAWSAccountId": {
@@ -64,10 +64,23 @@
                 "239734009475"
             ]
         },
-        "AlertLogicPublicApiKey": {
-            "Description": "Public Api key issued to you by Alert Logic. Leave this field empty if you don't want to send data to Alert Logic's Log Manager.",
+        "AccessKeyId": {
+            "Description": "Alertlogic Access Key Id obtained from AIMS",
+            "Type": "String"
+        },
+        "SecretKey": {
+            "Description": "Alertlogic Secret Key returned from AIMS for the Access Key Id",
             "Type": "String",
-            "Default": ""
+            "NoEcho": true
+        },
+        "AlApiEndpoint": {
+            "Description": "Alert Logic API endpoint",
+            "Type": "String",
+            "Default": "api.global-services.global.alertlogic.com",
+            "AllowedValues": [
+                "api.global-services.global.alertlogic.com",
+                "api.global-integration.product.dev.alertlogic.com"
+            ]
         },
         "AlertLogicAccountId": {
             "Description": "Alert Logic's Account ID. Leave this field empty if you want send data to your account. Use child Account ID if you want to send to a child account.",
@@ -94,8 +107,10 @@
                     },
                     "Parameters": [
                         "AlertLogicAccountId",
-                        "AlertLogicPublicApiKey",
-                        "AlertLogicAWSAccountId"
+                        "AlertLogicAWSAccountId",
+                        "AccessKeyId",
+                        "SecretKey",
+                        "AlApiEndpoint"
                     ]
                 },
                 {
@@ -128,8 +143,14 @@
                 "AlertLogicAWSAccountId": {
                     "default": "Alert Logic AWS account id to grant access to your data:"
                 },
-                "AlertLogicPublicApiKey": {
-                    "default": "Alert Logic API key:"
+                "AccessKeyId": {
+                    "default": "Alertlogic Access Key Id obtained from AIMS"
+                },
+                "SecretKey": {
+                    "default": "Alertlogic Secret Key returned from AIMS for the Access Key Id"
+                },
+                "AlApiEndpoint": {
+                    "default": "Alert Logic API endpoint"
                 },
                 "LambdaS3BucketNamePrefix": {
                     "default": "Lambda package S3 bucket prefix:"
@@ -342,8 +363,14 @@
                     "AlertLogicAWSAccountId": {
                         "Ref": "AlertLogicAWSAccountId"
                     },
-                    "AlertLogicPublicApiKey": {
-                        "Ref": "AlertLogicPublicApiKey"
+                    "AccessKeyId": {
+                        "Ref": "AccessKeyId"
+                    },
+                    "SecretKey": {
+                        "Ref": "SecretKey"
+                    },
+                    "AlApiEndpoint": {
+                        "Ref": "AlApiEndpoint"
                     },
                     "AlertLogicAccountId": {
                         "Ref": "AlertLogicAccountId"

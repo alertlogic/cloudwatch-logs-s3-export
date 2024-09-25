@@ -17,6 +17,12 @@ Resources:
       Timeout: 300
       Handler: index.handler
       Runtime: nodejs20.x
+      Environment:
+        Variables:
+          AWS_LAMBDA_FUNCTION_NAME:
+          aims_secret_key:
+          aims_access_key_id:
+          al_api:
       EphemeralStorage:
         Size: 512
       EventInvokeConfig:
